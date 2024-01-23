@@ -30,7 +30,7 @@ int main(int argc, char* argv[])
         else
         {
             fpsMoy = fps * alpha + (1 - alpha) * fpsMoy;
-            std::cout << "Average fps: " << fpsMoy << std::endl;
+            //std::cout << "Average fps: " << fpsMoy << std::endl;
         }
     }
 

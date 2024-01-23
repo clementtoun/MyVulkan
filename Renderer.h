@@ -32,7 +32,7 @@ const std::vector<const char*> deviceExtensions = {
 	VK_KHR_SWAPCHAIN_EXTENSION_NAME
 };
 
-#define MAX_FRAMES_IN_FLIGHT 2
+#define MAX_FRAMES_IN_FLIGHT 3
 
 typedef struct s_MVP
 {
@@ -68,6 +68,10 @@ public:
 	void CreateRenderPass();
 
 	void CreateDescriptor();
+
+	void CreatePerPassDescriptor();
+
+	void CreatePerMeshDescriptor();
 
 	void CreateGraphicPipeline(Shader& vertexShader, Shader& fragmentShader);
 
@@ -128,6 +132,7 @@ private:
 	std::vector<VkFence> m_ImagesInFlight;
 	Image m_DepthImage;
 	Descriptor m_Descriptor;
+	Descriptor m_PerPassDescriptor;
 
 	Camera* m_Camera;
 	MVP m_Mvp;

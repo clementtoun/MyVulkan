@@ -1,6 +1,8 @@
 #include "Renderer.h"
 #include <array>
 
+#undef CreateWindow
+
 static void framebufferResizeCallback(GLFWwindow* window, int width, int height) 
 {
     Renderer* renderer = reinterpret_cast<Renderer*>(glfwGetWindowUserPointer(window));
@@ -105,6 +107,8 @@ Renderer::Renderer(const std::string& ApplicationName, uint32_t ApplicationVersi
     m_Meshes.push_back(blueTri);
 
     CreateCommandBuffers();
+    for (int i = 0; i < m_SwapChain.GetFramebuffers().size(); i++)
+        RecordCommandBuffer(m_CommandBuffers[i], i);
 
     CreateSyncObject();
 
@@ -520,6 +524,14 @@ void Renderer::CreateDescriptor()
     }
 }
 
+void Renderer::CreatePerMeshDescriptor()
+{
+}
+
+void Renderer::CreatePerPassDescriptor()
+{
+}
+
 void Renderer::CreateGraphicPipeline(Shader& vertexShader, Shader& fragmentShader)
 {
     VkPipelineShaderStageCreateInfo pipelineVertexShaderStageCreateInfo;
@@ -740,7 +752,7 @@ void Renderer::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t image
 {
     VkFramebuffer framebuffers = m_SwapChain.GetFramebuffers()[imageIndex];
 
-    auto descriptorSets = m_Descriptor.GetDescriptorSets()[m_CurrentFrame];
+    auto descriptorSet = m_Descriptor.GetDescriptorSets()[m_CurrentFrame];
 
     VkCommandBufferBeginInfo beginInfo;
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -785,7 +797,7 @@ void Renderer::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t image
 
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_GraphicPipelineLayout, 0, 1, &descriptorSets, 0, nullptr);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_GraphicPipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
 
     for (auto mesh : m_Meshes)
     {
@@ -841,7 +853,10 @@ bool Renderer::WindowShouldClose()
 
 void Renderer::Draw()
 {
+    m_DeltaTime = std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - m_LastTime).count();
+    m_LastTime = std::chrono::high_resolution_clock::now();
     glfwPollEvents();
+    ProcessKeyInput();
 
     vkWaitForFences(m_Device, 1, &m_InFlightFences[m_CurrentFrame], VK_TRUE, UINT64_MAX);
 
@@ -858,20 +873,15 @@ void Renderer::Draw()
         CreateDepthRessources();
         m_SwapChain.CreateFramebuffer(m_Device, m_RenderPass.getRenderPass(), m_DepthImage.GetImageView());
         CreateCommandBuffers();
+        for (int i = 0; i < m_SwapChain.GetFramebuffers().size(); i++)
+            RecordCommandBuffer(m_CommandBuffers[i], i);
         return;
     }
     else if (result != VK_SUCCESS) {
         std::cout << "Failed to acquire next image !" << std::endl;
     }
 
-    m_DeltaTime = std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - m_LastTime).count();
-    ProcessKeyInput();
-
-    m_LastTime = std::chrono::high_resolution_clock::now();
-
     UpdateUniform();
-    vkResetCommandBuffer(m_CommandBuffers[imageIndex], 0);
-    RecordCommandBuffer(m_CommandBuffers[imageIndex], imageIndex);
 
     if (m_ImagesInFlight[imageIndex] != VK_NULL_HANDLE) {
         vkWaitForFences(m_Device, 1, &m_ImagesInFlight[imageIndex], VK_TRUE, UINT64_MAX);
@@ -920,6 +930,8 @@ void Renderer::Draw()
         CreateDepthRessources();
         m_SwapChain.CreateFramebuffer(m_Device, m_RenderPass.getRenderPass(), m_DepthImage.GetImageView());
         CreateCommandBuffers();
+        for (int i = 0; i < m_SwapChain.GetFramebuffers().size(); i++)
+            RecordCommandBuffer(m_CommandBuffers[i], i);
         m_FramebufferResized = false;
         return;
     }

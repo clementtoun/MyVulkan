@@ -3,7 +3,6 @@
 #include <array>
 #include <vector>
 #include "VulkanBase.h"
-#include <glm/glm.hpp>
 
 struct Vertex
 {
