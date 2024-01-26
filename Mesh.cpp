@@ -4,6 +4,7 @@ Mesh::Mesh(const std::vector<Vertex>& vertexs, const std::vector<uint32_t>& inde
 {
 	m_Vertexs = vertexs;
 	m_Indexes = indexes;
+	m_Model = glm::mat4(1.);
 }
 
 void Mesh::DestroyBuffer(VmaAllocator allocator, VkDevice device)
@@ -150,6 +151,16 @@ void Mesh::BindVertexBuffer(VkCommandBuffer commandBuffer)
 void Mesh::BindIndexBuffer(VkCommandBuffer commandBuffer)
 {
 	vkCmdBindIndexBuffer(commandBuffer, m_IndexBuffer, 0, VK_INDEX_TYPE_UINT32);
+}
+
+const glm::mat4& Mesh::GetModel()
+{
+	return m_Model;
+}
+
+void Mesh::SetModel(const glm::mat4 model)
+{
+	m_Model = model;
 }
 
 void Mesh::CopyBuffer(VkDevice device, VkCommandPool transferPool, VkQueue transferQueue, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size)

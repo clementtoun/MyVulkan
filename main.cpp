@@ -5,7 +5,7 @@
 
 int main(int argc, char* argv[]) 
 {
-    Renderer renderer = Renderer("MyFirstApp", VK_MAKE_API_VERSION(0, 1, 3, 0), "MyEngine", VK_MAKE_API_VERSION(0, 1, 3, 0), 1080, 720);
+    Renderer renderer = Renderer("MyFirstApp", VK_MAKE_API_VERSION(0, 1, 3, 0), "MyEngine", VK_MAKE_API_VERSION(0, 1, 3, 0), 1280*1.5, 720*1.5);
 
     double fpsMoy;
     double alpha = 0.00005;
@@ -30,7 +30,7 @@ int main(int argc, char* argv[])
         else
         {
             fpsMoy = fps * alpha + (1 - alpha) * fpsMoy;
-            //std::cout << "Average fps: " << fpsMoy << std::endl;
+            std::cout << "Average fps: " << fpsMoy << std::endl;
         }
     }
 

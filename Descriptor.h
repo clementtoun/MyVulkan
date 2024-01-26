@@ -30,13 +30,16 @@ public:
 
 	const std::vector<VkDescriptorSet>& GetDescriptorSets();
 
-	const std::vector<VmaAllocation>& GetUniformAllocation();
+	const std::vector<VmaAllocation>& GetUniformAllocations();
+
+	const std::vector<VmaAllocationInfo>& GetUniformAllocationInfos();
 
 private:
 	VkDescriptorSetLayout m_DescriptorSetLayout = VK_NULL_HANDLE;
 	VkDescriptorPool m_DescriptorPool = VK_NULL_HANDLE;
-	std::vector<VkBuffer> m_uniformBuffers;
-	std::vector<VmaAllocation> m_uniformBufferAllocations;
+	std::vector<VkBuffer> m_UniformBuffers;
+	std::vector<VmaAllocation> m_UniformBufferAllocations;
+	std::vector<VmaAllocationInfo>m_UniformBufferAllocInfos;
 	std::vector<VkDescriptorSet> m_DescriptorSets;
 };
 

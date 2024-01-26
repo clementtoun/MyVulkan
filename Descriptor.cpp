@@ -26,27 +26,29 @@ void Descriptor::AddUniformBuffer(VmaAllocator allocator, VkDevice device, VkDev
 	uniformBufferCreateInfo.size = size;
 	uniformBufferCreateInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
 
-	VmaAllocationCreateInfo uniformAllocInfo{};
-	uniformAllocInfo.usage = VMA_MEMORY_USAGE_AUTO;
-	uniformAllocInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+	VmaAllocationCreateInfo uniformAllocCreateInfo{};
+	uniformAllocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
+	uniformAllocCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
 
 	VkBuffer uniformBuffer;
 	VmaAllocation uniformBufferAllocation;
-	if (vmaCreateBuffer(allocator, &uniformBufferCreateInfo, &uniformAllocInfo, &uniformBuffer, &uniformBufferAllocation, NULL) != VK_SUCCESS)
+	VmaAllocationInfo uniformAllocInfo;
+	if (vmaCreateBuffer(allocator, &uniformBufferCreateInfo, &uniformAllocCreateInfo, &uniformBuffer, &uniformBufferAllocation, &uniformAllocInfo) != VK_SUCCESS)
 		std::cout << "Uniform buffer allocation failed !" << std::endl;
 
-	m_uniformBuffers.push_back(uniformBuffer);
-	m_uniformBufferAllocations.push_back(uniformBufferAllocation);
+	m_UniformBuffers.push_back(uniformBuffer);
+	m_UniformBufferAllocations.push_back(uniformBufferAllocation);
+	m_UniformBufferAllocInfos.push_back(uniformAllocInfo);
 }
 
 void Descriptor::DestroyUniformBuffer(VmaAllocator allocator, VkDevice device)
 {
 	if (device != VK_NULL_HANDLE)
 	{
-		for (int i = 0; i < m_uniformBuffers.size(); i++)
+		for (int i = 0; i < m_UniformBuffers.size(); i++)
 		{
-			vkDestroyBuffer(device, m_uniformBuffers[i], NULL);
-			vmaFreeMemory(allocator, m_uniformBufferAllocations[i]);
+			vkDestroyBuffer(device, m_UniformBuffers[i], NULL);
+			vmaFreeMemory(allocator, m_UniformBufferAllocations[i]);
 		}
 	}
 }
@@ -97,7 +99,7 @@ VkDescriptorPool Descriptor::GetDescriptorPool()
 
 const std::vector<VkBuffer>& Descriptor::GetUniformBuffers()
 {
-	return m_uniformBuffers;
+	return m_UniformBuffers;
 }
 
 const std::vector<VkDescriptorSet>& Descriptor::GetDescriptorSets()
@@ -105,7 +107,12 @@ const std::vector<VkDescriptorSet>& Descriptor::GetDescriptorSets()
 	return m_DescriptorSets;
 }
 
-const std::vector<VmaAllocation>& Descriptor::GetUniformAllocation()
+const std::vector<VmaAllocation>& Descriptor::GetUniformAllocations()
 {
-	return m_uniformBufferAllocations;
+	return m_UniformBufferAllocations;
+}
+
+const std::vector<VmaAllocationInfo>& Descriptor::GetUniformAllocationInfos()
+{
+	return m_UniformBufferAllocInfos;
 }

@@ -56,11 +56,17 @@ public:
 
 	void BindIndexBuffer(VkCommandBuffer commandBuffer);
 
+	const glm::mat4& GetModel();
+
+	void SetModel(const glm::mat4 model);
+
 private:
 	void CopyBuffer(VkDevice device, VkCommandPool transferPool, VkQueue transferQueue, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
 
 	std::vector<Vertex> m_Vertexs;
 	std::vector<uint32_t> m_Indexes;
+
+	glm::mat4 m_Model;
 
 	VkBuffer m_VertexBuffer = VK_NULL_HANDLE;
 	VmaAllocation m_VertexBufferAlloc;

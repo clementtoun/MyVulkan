@@ -67,8 +67,6 @@ public:
 
 	void CreateRenderPass();
 
-	void CreateDescriptor();
-
 	void CreatePerPassDescriptor();
 
 	void CreatePerMeshDescriptor();
@@ -131,7 +129,7 @@ private:
 	std::vector<VkFence> m_InFlightFences;
 	std::vector<VkFence> m_ImagesInFlight;
 	Image m_DepthImage;
-	Descriptor m_Descriptor;
+	Descriptor m_PerMeshDescriptor;
 	Descriptor m_PerPassDescriptor;
 
 	Camera* m_Camera;
