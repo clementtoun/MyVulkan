@@ -49,6 +49,7 @@ EulerCamera::EulerCamera() : Camera(), m_MouseSensibility(1.), m_Speed(1.)
 EulerCamera::EulerCamera(glm::vec3 position, glm::vec3 target, glm::vec3 up, double fov, double aspect, double near, double far) :
     Camera(position, target, up, fov, aspect, near, far), m_MouseSensibility(1.), m_Speed(1.)
 {
+    std::cout << up.y;
 }
 
 void EulerCamera::SetMouseSensibility(float mouseSensibility)
@@ -105,7 +106,7 @@ void EulerCamera::ProcessMouseMouve(double x, double y, bool leftClick)
     if (leftClick)
     {
         m_Yaw += (x - m_LastMouseX) * m_MouseSensibility * 90.;
-        m_Pitch += (y - m_LastMouseY) * m_MouseSensibility * 90.;
+        m_Pitch += (m_LastMouseY - y) * m_MouseSensibility * 90.;
 
         if (m_Yaw >= 360)
             m_Yaw -= 360;

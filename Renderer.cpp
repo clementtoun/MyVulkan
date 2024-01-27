@@ -86,25 +86,21 @@ Renderer::Renderer(const std::string& ApplicationName, uint32_t ApplicationVersi
     Shader fragmentShader;
     fragmentShader.createModule(m_Device, "frag.spv");
 
-    auto multiTri = new Mesh({ {{0.0,-0.5,0.0}, {1.0,0.0,0.0}, {255,0,0}}, {{-0.5,0.5,0.0},{0.0,1.0,0.0}, {0,255,0}}, {{0.5,0.5,0.0}, {0.0,0.0,1.0}, {0,0,255}}}, {0,1,2});
+    auto multiTri = new Mesh({ {{0.0,0.5,0.0}, {1.0,0.0,0.0}, {255,0,0}}, {{-0.5,-0.5,0.0},{0.0,1.0,0.0}, {0,255,0}}, {{0.5,-0.5,0.0}, {0.0,0.0,1.0}, {0,0,255}}}, {0,1,2});
     multiTri->CreateVertexBuffers(m_Allocator, m_Device, m_TransferPool, m_TranferQueue, m_QueueFamilyIndices.transferFamily.value(), m_QueueFamilyIndices.graphicsFamily.value());
     multiTri->CreateIndexBuffers(m_Allocator, m_Device, m_TransferPool, m_TranferQueue, m_QueueFamilyIndices.transferFamily.value(), m_QueueFamilyIndices.graphicsFamily.value());
-    multiTri->SetModel(glm::translate(glm::mat4(1.), glm::vec3(0.5, 0.0, 0.0)));
 
-    auto fireTri = new Mesh({ { {{0.0,-0.5,0.0}, {1.0,0.0,0.0}, {255,0,0}}, {{-0.5,0.5,0.0},{1.0,0.75,0.25},{255,190,50}}, {{0.5,0.5,0.0}, {1.0,0.5,0.0}, {255,128,0}} } }, { 0,1,2 });
+    auto fireTri = new Mesh({ { {{0.0,0.5,0.0}, {1.0,0.0,0.0}, {255,0,0}}, {{-0.5,-0.5,0.0},{1.0,0.75,0.25},{255,190,50}}, {{0.5,-0.5,0.0}, {1.0,0.5,0.0}, {255,128,0}} } }, { 0,1,2 });
     fireTri->CreateVertexBuffers(m_Allocator, m_Device, m_TransferPool, m_TranferQueue, m_QueueFamilyIndices.transferFamily.value(), m_QueueFamilyIndices.graphicsFamily.value());
     fireTri->CreateIndexBuffers(m_Allocator, m_Device, m_TransferPool, m_TranferQueue, m_QueueFamilyIndices.transferFamily.value(), m_QueueFamilyIndices.graphicsFamily.value());
-    fireTri->SetModel(glm::translate(glm::mat4(1.), glm::vec3(-0.25, -0.25, 0.5)));
+    fireTri->SetModel(glm::translate(glm::mat4(1.), glm::vec3(0., 2.0, 0.)));
 
     auto sponza = MeshLoader::loadMesh("./Models/Sponza/sponza.obj");
     if (sponza)
     {
         sponza->CreateVertexBuffers(m_Allocator, m_Device, m_TransferPool, m_TranferQueue, m_QueueFamilyIndices.transferFamily.value(), m_QueueFamilyIndices.graphicsFamily.value());
         sponza->CreateIndexBuffers(m_Allocator, m_Device, m_TransferPool, m_TranferQueue, m_QueueFamilyIndices.transferFamily.value(), m_QueueFamilyIndices.graphicsFamily.value());
-        auto model = glm::mat4(1.);
-        model[1][1] *= -1;
-        model = glm::scale(model, glm::vec3(0.01));
-        sponza->SetModel(model);
+        sponza->SetModel(glm::scale(glm::mat4(1.), glm::vec3(0.01)));
         m_Meshes.push_back(sponza);
 
         std::cout << "Num vertices: " << sponza->GetVertex().size() << std::endl;
@@ -118,10 +114,7 @@ Renderer::Renderer(const std::string& ApplicationName, uint32_t ApplicationVersi
     {
         cube->CreateVertexBuffers(m_Allocator, m_Device, m_TransferPool, m_TranferQueue, m_QueueFamilyIndices.transferFamily.value(), m_QueueFamilyIndices.graphicsFamily.value());
         cube->CreateIndexBuffers(m_Allocator, m_Device, m_TransferPool, m_TranferQueue, m_QueueFamilyIndices.transferFamily.value(), m_QueueFamilyIndices.graphicsFamily.value());
-        auto model = glm::mat4(1.);
-        model[1][1] *= -1;
-        model = glm::translate(model, glm::vec3(5., 1.0, 0.));
-        cube->SetModel(model);
+        cube->SetModel(glm::translate(glm::mat4(1.), glm::vec3(5., 1.0, 0.)));
         m_Meshes.push_back(cube);
     }
 
@@ -677,10 +670,10 @@ void Renderer::CreateGraphicPipeline(Shader& vertexShader, Shader& fragmentShade
     auto extent = m_SwapChain.GetExtent();
 
     VkViewport viewport;
-    viewport.x = 0;
-    viewport.y = 0;
+    viewport.x = 0.0;
+    viewport.y = (float)extent.height;
     viewport.width = (float)extent.width;
-    viewport.height = (float)extent.height;
+    viewport.height = -(float)extent.height;
     viewport.minDepth = 0.0;
     viewport.maxDepth = 1.0;
 
@@ -888,9 +881,9 @@ void Renderer::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t image
 
     VkViewport viewport;
     viewport.x = 0.0;
-    viewport.y = 0.0;
+    viewport.y = (float)extent.height;
     viewport.width = (float)extent.width;
-    viewport.height = (float)extent.height;
+    viewport.height = -(float)extent.height;
     viewport.minDepth = 0.0;
     viewport.maxDepth = 1.f;
 
@@ -1139,9 +1132,9 @@ void Renderer::ProcessKeyInput()
     if (m_KeyPressedMap[GLFW_KEY_D].current)
         m_Camera->Move(RIGHT, m_DeltaTime);
     if (m_KeyPressedMap[GLFW_KEY_LEFT_SHIFT].current)
-        m_Camera->Move(UP, m_DeltaTime);
-    if (m_KeyPressedMap[GLFW_KEY_SPACE].current)
         m_Camera->Move(DOWN, m_DeltaTime);
+    if (m_KeyPressedMap[GLFW_KEY_SPACE].current)
+        m_Camera->Move(UP, m_DeltaTime);
     if (m_KeyPressedMap[GLFW_KEY_ESCAPE].current)
         glfwSetWindowShouldClose(m_Window.getWindow(), true);
     if (m_KeyPressedMap[GLFW_KEY_Z].previous == GLFW_RELEASE && m_KeyPressedMap[GLFW_KEY_Z].current == GLFW_PRESS)

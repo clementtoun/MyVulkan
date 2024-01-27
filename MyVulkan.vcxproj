@@ -161,6 +161,7 @@
     <ClInclude Include="RenderPass.h" />
     <ClInclude Include="Shader.h" />
     <ClInclude Include="SwapChain.h" />
+    <ClInclude Include="VkGLM.h" />
     <ClInclude Include="VulkanBase.h" />
     <ClInclude Include="VulkanUtils.h" />
   </ItemGroup>

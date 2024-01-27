@@ -7,7 +7,7 @@ layout(location = 2) in vec3 fragColor;
 layout(location = 0) out vec4 outColor;
 
 void main() {
-    vec3 ligthDir = vec3(0.25, -1., -0.25);
+    vec3 ligthDir = vec3(0.25, 1., -0.25);
 
     outColor = vec4(fragColor * max(0., dot(Normal, ligthDir)), 1.0);
 }
