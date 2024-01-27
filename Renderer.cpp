@@ -1,4 +1,5 @@
 #include "Renderer.h"
+#include "MeshLoader.h"
 #include <array>
 
 #undef CreateWindow
@@ -27,14 +28,11 @@ static void cursorPosCallback(GLFWwindow* window, double xpos, double ypos)
 
 static void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
-    if (action != GLFW_REPEAT)
-    {
-        Renderer* renderer = reinterpret_cast<Renderer*>(glfwGetWindowUserPointer(window));
+    Renderer* renderer = reinterpret_cast<Renderer*>(glfwGetWindowUserPointer(window));
 
-        std::map<int, bool>* keyPressMap = renderer->GetKeyPressedMap();
+    std::map<int, KeyPress>* keyPressMap = renderer->GetKeyPressedMap();
 
-        (*keyPressMap)[key] = action;
-    }
+    (*keyPressMap)[key].current = action;
 }
 
 static void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
@@ -88,20 +86,50 @@ Renderer::Renderer(const std::string& ApplicationName, uint32_t ApplicationVersi
     Shader fragmentShader;
     fragmentShader.createModule(m_Device, "frag.spv");
 
-    auto multiTri = new Mesh({ { {{0.0,-0.5,0.0}, {1.0,0.0,0.0}}, {{-0.5,0.5,0.0},{0.0,1.0,0.0}}, {{0.5,0.5,0.0}, {0.0,0.0,1.0}} } }, { 0,1,2 });
+    auto multiTri = new Mesh({ {{0.0,-0.5,0.0}, {1.0,0.0,0.0}, {255,0,0}}, {{-0.5,0.5,0.0},{0.0,1.0,0.0}, {0,255,0}}, {{0.5,0.5,0.0}, {0.0,0.0,1.0}, {0,0,255}}}, {0,1,2});
     multiTri->CreateVertexBuffers(m_Allocator, m_Device, m_TransferPool, m_TranferQueue, m_QueueFamilyIndices.transferFamily.value(), m_QueueFamilyIndices.graphicsFamily.value());
     multiTri->CreateIndexBuffers(m_Allocator, m_Device, m_TransferPool, m_TranferQueue, m_QueueFamilyIndices.transferFamily.value(), m_QueueFamilyIndices.graphicsFamily.value());
     multiTri->SetModel(glm::translate(glm::mat4(1.), glm::vec3(0.5, 0.0, 0.0)));
 
-    auto fireTri = new Mesh({ { {{0.0,-0.5,0.0}, {1.0,0.0,0.0}}, {{-0.5,0.5,0.0},{1.0,0.75,0.25}}, {{0.5,0.5,0.0}, {1.0,0.5,0.0}} } }, { 0,1,2 });
+    auto fireTri = new Mesh({ { {{0.0,-0.5,0.0}, {1.0,0.0,0.0}, {255,0,0}}, {{-0.5,0.5,0.0},{1.0,0.75,0.25},{255,190,50}}, {{0.5,0.5,0.0}, {1.0,0.5,0.0}, {255,128,0}} } }, { 0,1,2 });
     fireTri->CreateVertexBuffers(m_Allocator, m_Device, m_TransferPool, m_TranferQueue, m_QueueFamilyIndices.transferFamily.value(), m_QueueFamilyIndices.graphicsFamily.value());
     fireTri->CreateIndexBuffers(m_Allocator, m_Device, m_TransferPool, m_TranferQueue, m_QueueFamilyIndices.transferFamily.value(), m_QueueFamilyIndices.graphicsFamily.value());
     fireTri->SetModel(glm::translate(glm::mat4(1.), glm::vec3(-0.25, -0.25, 0.5)));
 
+    auto sponza = MeshLoader::loadMesh("./Models/Sponza/sponza.obj");
+    if (sponza)
+    {
+        sponza->CreateVertexBuffers(m_Allocator, m_Device, m_TransferPool, m_TranferQueue, m_QueueFamilyIndices.transferFamily.value(), m_QueueFamilyIndices.graphicsFamily.value());
+        sponza->CreateIndexBuffers(m_Allocator, m_Device, m_TransferPool, m_TranferQueue, m_QueueFamilyIndices.transferFamily.value(), m_QueueFamilyIndices.graphicsFamily.value());
+        auto model = glm::mat4(1.);
+        model[1][1] *= -1;
+        model = glm::scale(model, glm::vec3(0.01));
+        sponza->SetModel(model);
+        m_Meshes.push_back(sponza);
+
+        std::cout << "Num vertices: " << sponza->GetVertex().size() << std::endl;
+        std::cout << "Num indices: " << sponza->GetIndexes().size() << std::endl;
+    }
+
     m_Meshes.push_back(multiTri);
+
+    auto cube = MeshLoader::loadMesh("./Models/cube.obj");
+    if (cube)
+    {
+        cube->CreateVertexBuffers(m_Allocator, m_Device, m_TransferPool, m_TranferQueue, m_QueueFamilyIndices.transferFamily.value(), m_QueueFamilyIndices.graphicsFamily.value());
+        cube->CreateIndexBuffers(m_Allocator, m_Device, m_TransferPool, m_TranferQueue, m_QueueFamilyIndices.transferFamily.value(), m_QueueFamilyIndices.graphicsFamily.value());
+        auto model = glm::mat4(1.);
+        model[1][1] *= -1;
+        model = glm::translate(model, glm::vec3(5., 1.0, 0.));
+        cube->SetModel(model);
+        m_Meshes.push_back(cube);
+    }
+
     m_Meshes.push_back(fireTri);
 
     CreatePerMeshDescriptor();
+
+    CreatePerPassDescriptor();
 
     CreateGraphicPipeline(vertexShader, fragmentShader);
 
@@ -158,10 +186,17 @@ Renderer::~Renderer()
         m_PerMeshDescriptor.DestroyDescriptorPool(m_Device);
         m_PerMeshDescriptor.DestroyDescriptorSetLayout(m_Device);
         m_PerMeshDescriptor.DestroyUniformBuffer(m_Allocator, m_Device);
+
+        m_PerPassDescriptor.DestroyDescriptorPool(m_Device);
+        m_PerPassDescriptor.DestroyDescriptorSetLayout(m_Device);
+        m_PerPassDescriptor.DestroyUniformBuffer(m_Allocator, m_Device);
     }
 
     if (m_Device != VK_NULL_HANDLE && m_GraphicPipeline != VK_NULL_HANDLE)
         vkDestroyPipeline(m_Device, m_GraphicPipeline, NULL);
+
+    if (m_Device != VK_NULL_HANDLE && m_GraphicPipelineLineMode != VK_NULL_HANDLE)
+        vkDestroyPipeline(m_Device, m_GraphicPipelineLineMode, NULL);
 
     if (m_Device != VK_NULL_HANDLE && m_GraphicPipelineLayout != VK_NULL_HANDLE)
         vkDestroyPipelineLayout(m_Device, m_GraphicPipelineLayout, NULL);
@@ -389,6 +424,7 @@ void Renderer::CreateLogicalDevice()
 
     VkPhysicalDeviceFeatures deviceFeatures{};
     deviceFeatures.samplerAnisotropy = VK_TRUE;
+    deviceFeatures.fillModeNonSolid = VK_TRUE;
     
     VkDeviceCreateInfo vkDeviceCreateInfo;
     vkDeviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
@@ -540,6 +576,55 @@ void Renderer::CreatePerMeshDescriptor()
 
 void Renderer::CreatePerPassDescriptor()
 {
+    VkDescriptorSetLayoutBinding descriptorSetLayoutBinding{};
+    descriptorSetLayoutBinding.binding = 0;
+    descriptorSetLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    descriptorSetLayoutBinding.descriptorCount = 1;
+    descriptorSetLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    descriptorSetLayoutBinding.pImmutableSamplers = NULL;
+
+    m_PerPassDescriptor.CreateDescriptorSetLayout(m_Device, { descriptorSetLayoutBinding }, 0);
+
+    for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+    {
+        m_PerPassDescriptor.AddUniformBuffer(m_Allocator, m_Device, sizeof(VP));
+    }
+
+    VkDescriptorPoolSize descriptorPoolSize{};
+    descriptorPoolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    descriptorPoolSize.descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+
+    m_PerPassDescriptor.CreateDescriptorPool(m_Device, { descriptorPoolSize }, MAX_FRAMES_IN_FLIGHT);
+
+    VkDescriptorSetLayout layout = m_PerPassDescriptor.GetDescriptorSetLayout();
+    std::vector<VkDescriptorSetLayout> layouts;
+    layouts.assign(MAX_FRAMES_IN_FLIGHT, layout);
+
+    m_PerPassDescriptor.AllocateDescriptorSet(m_Device, layouts);
+
+    auto uniformBuffers = m_PerPassDescriptor.GetUniformBuffers();
+    auto descriptorSets = m_PerPassDescriptor.GetDescriptorSets();
+
+    for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+    {
+        VkDescriptorBufferInfo bufferInfo{};
+        bufferInfo.buffer = uniformBuffers[i];
+        bufferInfo.offset = 0;
+        bufferInfo.range = sizeof(VP);
+
+        VkWriteDescriptorSet descriptorWrite{};
+        descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrite.dstSet = descriptorSets[i];
+        descriptorWrite.dstBinding = 0;
+        descriptorWrite.dstArrayElement = 0;
+        descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        descriptorWrite.descriptorCount = 1;
+        descriptorWrite.pBufferInfo = &bufferInfo;
+        descriptorWrite.pImageInfo = nullptr; // Optional
+        descriptorWrite.pTexelBufferView = nullptr; // Optional
+
+        vkUpdateDescriptorSets(m_Device, 1, &descriptorWrite, 0, nullptr);
+    }
 }
 
 void Renderer::CreateGraphicPipeline(Shader& vertexShader, Shader& fragmentShader)
@@ -685,14 +770,14 @@ void Renderer::CreateGraphicPipeline(Shader& vertexShader, Shader& fragmentShade
     pipelineDynamicStateCreateInfo.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
     pipelineDynamicStateCreateInfo.pDynamicStates = dynamicStates.data();
     
-    auto layout = m_PerMeshDescriptor.GetDescriptorSetLayout();
+    std::array<VkDescriptorSetLayout,2> layouts = { m_PerMeshDescriptor.GetDescriptorSetLayout(), m_PerPassDescriptor.GetDescriptorSetLayout() };
 
     VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo;
     pipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     pipelineLayoutCreateInfo.pNext = NULL;
     pipelineLayoutCreateInfo.flags = 0;
-    pipelineLayoutCreateInfo.setLayoutCount = 1;
-    pipelineLayoutCreateInfo.pSetLayouts = &layout;
+    pipelineLayoutCreateInfo.setLayoutCount = static_cast<uint32_t>(layouts.size());
+    pipelineLayoutCreateInfo.pSetLayouts = layouts.data();
     pipelineLayoutCreateInfo.pushConstantRangeCount = 0;
     pipelineLayoutCreateInfo.pPushConstantRanges = NULL;
 
@@ -721,6 +806,11 @@ void Renderer::CreateGraphicPipeline(Shader& vertexShader, Shader& fragmentShade
     graphicsPipelineCreateInfo.basePipelineIndex = -1;
 
     if (vkCreateGraphicsPipelines(m_Device, VK_NULL_HANDLE, 1, &graphicsPipelineCreateInfo, NULL, &m_GraphicPipeline) != VK_SUCCESS)
+        std::cout << "Pipeline cration failed !" << std::endl;
+
+    pipelineRasterizationStateCreateInfo.polygonMode = VK_POLYGON_MODE_LINE;
+
+    if (vkCreateGraphicsPipelines(m_Device, VK_NULL_HANDLE, 1, &graphicsPipelineCreateInfo, NULL, &m_GraphicPipelineLineMode) != VK_SUCCESS)
         std::cout << "Pipeline cration failed !" << std::endl;
 }
 
@@ -762,7 +852,8 @@ void Renderer::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t image
 {
     VkFramebuffer framebuffers = m_SwapChain.GetFramebuffers()[imageIndex];
 
-    auto descriptorSet = m_PerMeshDescriptor.GetDescriptorSets()[m_CurrentFrame];
+    auto perMeshDescriptorSet = m_PerMeshDescriptor.GetDescriptorSets()[m_CurrentFrame];
+    auto perPassDescriptorSet = m_PerPassDescriptor.GetDescriptorSets()[m_CurrentFrame];
 
     VkCommandBufferBeginInfo beginInfo;
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -787,7 +878,11 @@ void Renderer::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t image
     renderPassInfo.pClearValues = clearValues.data();
 
     vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_GraphicPipeline);
+
+    if (m_drawFill)
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_GraphicPipeline);
+    else
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_GraphicPipelineLineMode);
 
     auto extent = m_SwapChain.GetExtent();
 
@@ -814,13 +909,15 @@ void Renderer::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t image
     uint64_t bufferSize = sizeof(glm::mat4);
     uint64_t paddedSize = minSize - bufferSize + bufferSize;
 
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_GraphicPipelineLayout, 1, 1, &perPassDescriptorSet, 0, NULL);
+
     for (int i = 0; i < m_Meshes.size(); i++)
     {
         auto mesh = m_Meshes[i];
 
         uint32_t offset = i * paddedSize;
 
-        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_GraphicPipelineLayout, 0, 1, &descriptorSet, 1, &offset);
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_GraphicPipelineLayout, 0, 1, &perMeshDescriptorSet, 1, &offset);
         mesh->BindVertexBuffer(commandBuffer);
         mesh->BindIndexBuffer(commandBuffer);
 
@@ -877,6 +974,17 @@ void Renderer::Draw()
     m_LastTime = std::chrono::high_resolution_clock::now();
     glfwPollEvents();
     ProcessKeyInput();
+
+    if (m_needRecordCommandBuffer)
+    {
+        vkDeviceWaitIdle(m_Device);
+        for (int i = 0; i < m_SwapChain.GetFramebuffers().size(); i++)
+        {
+            vkResetCommandBuffer(m_CommandBuffers[i], 0);
+            RecordCommandBuffer(m_CommandBuffers[i], i);
+        }
+        m_needRecordCommandBuffer = false;
+    }
 
     vkWaitForFences(m_Device, 1, &m_InFlightFences[m_CurrentFrame], VK_TRUE, UINT64_MAX);
 
@@ -966,18 +1074,12 @@ void Renderer::Draw()
 
 void Renderer::UpdateUniform()
 {
-    /*
-    m_Mvp.model = glm::mat4(1.0);
-    m_Mvp.view = m_Camera->GetView();
-    m_Mvp.projection = m_Camera->GetProjection();
+    m_VP.view = m_Camera->GetView();
+    m_VP.projection = m_Camera->GetProjection();
 
-    auto uniformAlloc = m_PerMeshDescriptor.GetUniformAllocation()[m_CurrentFrame];
+    auto uniformAllocInfo = m_PerPassDescriptor.GetUniformAllocationInfos()[m_CurrentFrame];
 
-    void* data;
-    vmaMapMemory(m_Allocator, uniformAlloc, &data);
-    memcpy(data, &m_Mvp, sizeof(MVP));
-    vmaUnmapMemory(m_Allocator, uniformAlloc);
-    */
+    memcpy(uniformAllocInfo.pMappedData, &m_VP, sizeof(VP));
 
     VkPhysicalDeviceProperties properties;
     vkGetPhysicalDeviceProperties(m_PhysicalDevice, &properties);
@@ -986,9 +1088,15 @@ void Renderer::UpdateUniform()
     uint64_t bufferSize = sizeof(glm::mat4);
     uint64_t paddedSize = minSize - bufferSize + bufferSize;
 
-    auto uniformAllocInfo = m_PerMeshDescriptor.GetUniformAllocationInfos()[m_CurrentFrame];
+    auto time = std::chrono::duration<double>(m_LastTime.time_since_epoch()).count();
+
+    uniformAllocInfo = m_PerMeshDescriptor.GetUniformAllocationInfos()[m_CurrentFrame];
 
     char* modelsData = (char*) malloc(m_Meshes.size() * paddedSize);
+
+    auto model = m_Meshes[1]->GetModel();
+    model = glm::translate(glm::mat4(1.), glm::vec3(glm::cos(time * glm::two_pi<double>()), 0., 0.));
+    m_Meshes[1]->SetModel(model);
 
     for(int i = 0; i < m_Meshes.size(); i++)
     {
@@ -1010,31 +1118,40 @@ void Renderer::InitKeyPressedMap()
 {
     for (int i = 32; i < 349; i++)
     {
-        m_IsKeyPressedMap[i] = false;
+        m_KeyPressedMap[i].previous = false;
+        m_KeyPressedMap[i].current = false;
     }
 }
 
-std::map<int, bool>* Renderer::GetKeyPressedMap()
+std::map<int, KeyPress>* Renderer::GetKeyPressedMap()
 {
-    return &m_IsKeyPressedMap;
+    return &m_KeyPressedMap;
 }
 
 void Renderer::ProcessKeyInput()
 {
-    if (m_IsKeyPressedMap[GLFW_KEY_W])
+    if (m_KeyPressedMap[GLFW_KEY_W].current)
         m_Camera->Move(FORWARD, m_DeltaTime);
-    if (m_IsKeyPressedMap[GLFW_KEY_A])
+    if (m_KeyPressedMap[GLFW_KEY_A].current)
         m_Camera->Move(LEFT, m_DeltaTime);
-    if (m_IsKeyPressedMap[GLFW_KEY_S])
+    if (m_KeyPressedMap[GLFW_KEY_S].current)
         m_Camera->Move(BACKWARD, m_DeltaTime);
-    if (m_IsKeyPressedMap[GLFW_KEY_D])
+    if (m_KeyPressedMap[GLFW_KEY_D].current)
         m_Camera->Move(RIGHT, m_DeltaTime);
-    if (m_IsKeyPressedMap[GLFW_KEY_LEFT_SHIFT])
+    if (m_KeyPressedMap[GLFW_KEY_LEFT_SHIFT].current)
         m_Camera->Move(UP, m_DeltaTime);
-    if (m_IsKeyPressedMap[GLFW_KEY_SPACE])
+    if (m_KeyPressedMap[GLFW_KEY_SPACE].current)
         m_Camera->Move(DOWN, m_DeltaTime);
-    if (m_IsKeyPressedMap[GLFW_KEY_ESCAPE])
+    if (m_KeyPressedMap[GLFW_KEY_ESCAPE].current)
         glfwSetWindowShouldClose(m_Window.getWindow(), true);
+    if (m_KeyPressedMap[GLFW_KEY_Z].previous == GLFW_RELEASE && m_KeyPressedMap[GLFW_KEY_Z].current == GLFW_PRESS)
+    {
+        m_drawFill = !m_drawFill;
+        m_needRecordCommandBuffer = true;
+    }
+
+    for (int i = 32; i < 349; i++)
+        m_KeyPressedMap[i].previous = m_KeyPressedMap[i].current;
 }
 
 bool Renderer::checkDeviceExtensionSupport(VkPhysicalDevice device)
@@ -1071,7 +1188,7 @@ bool Renderer::isDeviceSuitable(VkPhysicalDevice device)
 
     FindQueueFamilies(device, m_Surface);
 
-    bool suitable = m_QueueFamilyIndices.isComplete() && extensionsSupported && swapChainAdequate && deviceFeatures.samplerAnisotropy;
+    bool suitable = m_QueueFamilyIndices.isComplete() && extensionsSupported && swapChainAdequate && deviceFeatures.samplerAnisotropy && deviceFeatures.fillModeNonSolid;
 
     return suitable;
 }

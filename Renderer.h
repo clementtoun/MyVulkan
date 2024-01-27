@@ -34,12 +34,16 @@ const std::vector<const char*> deviceExtensions = {
 
 #define MAX_FRAMES_IN_FLIGHT 3
 
-typedef struct s_MVP
+typedef struct s_VP
 {
-	glm::mat4 model;
 	glm::mat4 view;
 	glm::mat4 projection;
-} MVP;
+} VP;
+
+typedef struct s_KeyPress
+{
+	bool current, previous;
+} KeyPress;
 
 class Renderer
 {
@@ -95,7 +99,7 @@ public:
 
 	void InitKeyPressedMap();
 
-	std::map<int, bool>* GetKeyPressedMap();
+	std::map<int, KeyPress>* GetKeyPressedMap();
 
 	void ProcessKeyInput();
 
@@ -120,6 +124,7 @@ private:
 	SwapChain m_SwapChain;
 	RenderPass m_RenderPass;
 	VkPipeline m_GraphicPipeline = VK_NULL_HANDLE;
+	VkPipeline m_GraphicPipelineLineMode = VK_NULL_HANDLE;
 	VkPipelineLayout m_GraphicPipelineLayout = VK_NULL_HANDLE;
 	VkCommandPool m_TransferPool = VK_NULL_HANDLE;
 	VkCommandPool m_GraphicPool = VK_NULL_HANDLE;
@@ -133,13 +138,16 @@ private:
 	Descriptor m_PerPassDescriptor;
 
 	Camera* m_Camera;
-	MVP m_Mvp;
+	VP m_VP;
 
-	std::map<int, bool> m_IsKeyPressedMap;
+	std::map<int, KeyPress> m_KeyPressedMap;
 
 	uint32_t m_CurrentFrame = 0;
 
 	std::chrono::steady_clock::time_point m_LastTime = std::chrono::high_resolution_clock::now();
 	double m_DeltaTime = 0;
+
+	bool m_drawFill = true;
+	bool m_needRecordCommandBuffer = false;
 };
 
