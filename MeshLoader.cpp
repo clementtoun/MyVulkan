@@ -46,11 +46,14 @@ Mesh* MeshLoader::loadMesh(const std::string& path, const std::string& mtlSearch
         currentVertex.pos.y = attrib.vertices[i+1];
         currentVertex.pos.z = attrib.vertices[i+2];
 
+        currentVertex.normal = glm::vec3(0.);
+
         currentVertex.color[0] = 255 * 0.5;
         currentVertex.color[1] = 255 * 0.5;
         currentVertex.color[2] = 255 * 0.5;
 
-        verticesToSetNormal.insert(i/3);
+        if (attrib.normals.size() > 0)
+            verticesToSetNormal.insert(i/3);
         vertices.emplace_back(currentVertex);
     }
 
@@ -82,5 +85,10 @@ Mesh* MeshLoader::loadMesh(const std::string& path, const std::string& mtlSearch
         }
     }
 
-	return new Mesh(vertices, indices);
+    auto mesh = new Mesh(vertices, indices);
+
+    if (attrib.normals.size() == 0)
+        mesh->AutoComputeNormals();
+
+	return mesh;
 }

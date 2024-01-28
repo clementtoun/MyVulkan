@@ -86,15 +86,20 @@ Renderer::Renderer(const std::string& ApplicationName, uint32_t ApplicationVersi
     Shader fragmentShader;
     fragmentShader.createModule(m_Device, "frag.spv");
 
+    /*
     auto multiTri = new Mesh({ {{0.0,0.5,0.0}, {1.0,0.0,0.0}, {255,0,0}}, {{-0.5,-0.5,0.0},{0.0,1.0,0.0}, {0,255,0}}, {{0.5,-0.5,0.0}, {0.0,0.0,1.0}, {0,0,255}}}, {0,1,2});
     multiTri->CreateVertexBuffers(m_Allocator, m_Device, m_TransferPool, m_TranferQueue, m_QueueFamilyIndices.transferFamily.value(), m_QueueFamilyIndices.graphicsFamily.value());
     multiTri->CreateIndexBuffers(m_Allocator, m_Device, m_TransferPool, m_TranferQueue, m_QueueFamilyIndices.transferFamily.value(), m_QueueFamilyIndices.graphicsFamily.value());
+    m_Meshes.push_back(multiTri);
 
     auto fireTri = new Mesh({ { {{0.0,0.5,0.0}, {1.0,0.0,0.0}, {255,0,0}}, {{-0.5,-0.5,0.0},{1.0,0.75,0.25},{255,190,50}}, {{0.5,-0.5,0.0}, {1.0,0.5,0.0}, {255,128,0}} } }, { 0,1,2 });
     fireTri->CreateVertexBuffers(m_Allocator, m_Device, m_TransferPool, m_TranferQueue, m_QueueFamilyIndices.transferFamily.value(), m_QueueFamilyIndices.graphicsFamily.value());
     fireTri->CreateIndexBuffers(m_Allocator, m_Device, m_TransferPool, m_TranferQueue, m_QueueFamilyIndices.transferFamily.value(), m_QueueFamilyIndices.graphicsFamily.value());
     fireTri->SetModel(glm::translate(glm::mat4(1.), glm::vec3(0., 2.0, 0.)));
+    m_Meshes.push_back(fireTri);
+    */
 
+    /*
     auto sponza = MeshLoader::loadMesh("./Models/Sponza/sponza.obj");
     if (sponza)
     {
@@ -106,19 +111,16 @@ Renderer::Renderer(const std::string& ApplicationName, uint32_t ApplicationVersi
         std::cout << "Num vertices: " << sponza->GetVertex().size() << std::endl;
         std::cout << "Num indices: " << sponza->GetIndexes().size() << std::endl;
     }
+    */
 
-    m_Meshes.push_back(multiTri);
-
-    auto cube = MeshLoader::loadMesh("./Models/cube.obj");
-    if (cube)
+    auto teapot = MeshLoader::loadMesh("./Models/teapot.obj");
+    if (teapot)
     {
-        cube->CreateVertexBuffers(m_Allocator, m_Device, m_TransferPool, m_TranferQueue, m_QueueFamilyIndices.transferFamily.value(), m_QueueFamilyIndices.graphicsFamily.value());
-        cube->CreateIndexBuffers(m_Allocator, m_Device, m_TransferPool, m_TranferQueue, m_QueueFamilyIndices.transferFamily.value(), m_QueueFamilyIndices.graphicsFamily.value());
-        cube->SetModel(glm::translate(glm::mat4(1.), glm::vec3(5., 1.0, 0.)));
-        m_Meshes.push_back(cube);
+        teapot->CreateVertexBuffers(m_Allocator, m_Device, m_TransferPool, m_TranferQueue, m_QueueFamilyIndices.transferFamily.value(), m_QueueFamilyIndices.graphicsFamily.value());
+        teapot->CreateIndexBuffers(m_Allocator, m_Device, m_TransferPool, m_TranferQueue, m_QueueFamilyIndices.transferFamily.value(), m_QueueFamilyIndices.graphicsFamily.value());
+        teapot->SetModel(glm::scale(glm::mat4(1.), glm::vec3(1.)));
+        m_Meshes.push_back(teapot);
     }
-
-    m_Meshes.push_back(fireTri);
 
     CreatePerMeshDescriptor();
 
@@ -136,7 +138,7 @@ Renderer::Renderer(const std::string& ApplicationName, uint32_t ApplicationVersi
     CreateSyncObject();
 
     auto extent = m_SwapChain.GetExtent();
-    m_Camera = new EulerCamera(glm::vec3(0., 0., 2.), glm::vec3(0.), glm::vec3(0., 1., 0.), 45., extent.width / (double)extent.height, 0.001, 100.);
+    m_Camera = new EulerCamera(glm::vec3(3., 5.5, 5.), glm::vec3(0., 1., 0.), glm::vec3(0., 1., 0.), 45., extent.width / (double)extent.height, 0.001, 100.);
     m_Camera->SetSpeed(10.);
     m_Camera->SetMouseSensibility(1.);
 }
@@ -580,7 +582,7 @@ void Renderer::CreatePerPassDescriptor()
 
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        m_PerPassDescriptor.AddUniformBuffer(m_Allocator, m_Device, sizeof(VP));
+        m_PerPassDescriptor.AddUniformBuffer(m_Allocator, m_Device, sizeof(m_CameraUniform));
     }
 
     VkDescriptorPoolSize descriptorPoolSize{};
@@ -603,7 +605,7 @@ void Renderer::CreatePerPassDescriptor()
         VkDescriptorBufferInfo bufferInfo{};
         bufferInfo.buffer = uniformBuffers[i];
         bufferInfo.offset = 0;
-        bufferInfo.range = sizeof(VP);
+        bufferInfo.range = sizeof(m_CameraUniform);
 
         VkWriteDescriptorSet descriptorWrite{};
         descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -858,7 +860,7 @@ void Renderer::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t image
         std::cout << "Failed to begin commandBuffer !" << std::endl;
 
     std::array<VkClearValue, 2> clearValues{};
-    clearValues[0].color = { {0.5f, 0.7f, 1.0f, 1.0f} };
+    clearValues[0].color = { {0.1f, 0.25f, 0.6f, 1.0f} };
     clearValues[1].depthStencil = { 1.0f, 0 };
 
     VkRenderPassBeginInfo renderPassInfo{};
@@ -1067,12 +1069,13 @@ void Renderer::Draw()
 
 void Renderer::UpdateUniform()
 {
-    m_VP.view = m_Camera->GetView();
-    m_VP.projection = m_Camera->GetProjection();
+    m_CameraUniform.view = m_Camera->GetView();
+    m_CameraUniform.projection = m_Camera->GetProjection();
+    m_CameraUniform.position = m_Camera->GetPosition();
 
     auto uniformAllocInfo = m_PerPassDescriptor.GetUniformAllocationInfos()[m_CurrentFrame];
 
-    memcpy(uniformAllocInfo.pMappedData, &m_VP, sizeof(VP));
+    memcpy(uniformAllocInfo.pMappedData, &m_CameraUniform, sizeof(m_CameraUniform));
 
     VkPhysicalDeviceProperties properties;
     vkGetPhysicalDeviceProperties(m_PhysicalDevice, &properties);
@@ -1081,15 +1084,9 @@ void Renderer::UpdateUniform()
     uint64_t bufferSize = sizeof(glm::mat4);
     uint64_t paddedSize = minSize - bufferSize + bufferSize;
 
-    auto time = std::chrono::duration<double>(m_LastTime.time_since_epoch()).count();
-
     uniformAllocInfo = m_PerMeshDescriptor.GetUniformAllocationInfos()[m_CurrentFrame];
 
     char* modelsData = (char*) malloc(m_Meshes.size() * paddedSize);
-
-    auto model = m_Meshes[1]->GetModel();
-    model = glm::translate(glm::mat4(1.), glm::vec3(glm::cos(time * glm::two_pi<double>()), 0., 0.));
-    m_Meshes[1]->SetModel(model);
 
     for(int i = 0; i < m_Meshes.size(); i++)
     {

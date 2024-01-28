@@ -37,6 +37,11 @@ const glm::mat4& Camera::GetProjection()
     return m_Projection;
 }
 
+const glm::vec3& Camera::GetPosition()
+{
+    return m_Position;
+}
+
 void Camera::UpdateViewMatrix()
 {
     m_View = glm::lookAt(m_Position, m_Position + m_Forward, m_Up);
@@ -49,7 +54,6 @@ EulerCamera::EulerCamera() : Camera(), m_MouseSensibility(1.), m_Speed(1.)
 EulerCamera::EulerCamera(glm::vec3 position, glm::vec3 target, glm::vec3 up, double fov, double aspect, double near, double far) :
     Camera(position, target, up, fov, aspect, near, far), m_MouseSensibility(1.), m_Speed(1.)
 {
-    std::cout << up.y;
 }
 
 void EulerCamera::SetMouseSensibility(float mouseSensibility)

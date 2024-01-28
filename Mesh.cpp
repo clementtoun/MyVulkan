@@ -163,6 +163,28 @@ void Mesh::SetModel(const glm::mat4 model)
 	m_Model = model;
 }
 
+void Mesh::AutoComputeNormals()
+{
+	for (auto& vertex : m_Vertexs)
+		vertex.normal = glm::vec3(0.);
+
+	for (uint32_t i = 0; i < m_Indexes.size(); i+=3)
+	{
+		uint32_t idx0 = m_Indexes[i];
+		uint32_t idx1 = m_Indexes[i+1];
+		uint32_t idx2 = m_Indexes[i+2];
+
+		glm::vec3 normal = glm::cross(m_Vertexs[idx1].pos - m_Vertexs[idx0].pos, m_Vertexs[idx2].pos - m_Vertexs[idx0].pos);
+
+		m_Vertexs[idx0].normal += normal;
+		m_Vertexs[idx1].normal += normal;
+		m_Vertexs[idx2].normal += normal;
+	}
+
+	for (auto& vertex : m_Vertexs)
+		vertex.normal = glm::normalize(vertex.normal);
+}
+
 void Mesh::CopyBuffer(VkDevice device, VkCommandPool transferPool, VkQueue transferQueue, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size)
 {
 	VkCommandBufferAllocateInfo commandBufferallocInfo{};

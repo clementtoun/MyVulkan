@@ -65,6 +65,8 @@ public:
 
 	void SetModel(const glm::mat4 model);
 
+	void AutoComputeNormals();
+
 private:
 	void CopyBuffer(VkDevice device, VkCommandPool transferPool, VkQueue transferQueue, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
 

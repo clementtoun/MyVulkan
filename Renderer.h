@@ -34,11 +34,12 @@ const std::vector<const char*> deviceExtensions = {
 
 #define MAX_FRAMES_IN_FLIGHT 3
 
-typedef struct s_VP
+typedef struct s_CameraUniform
 {
 	glm::mat4 view;
 	glm::mat4 projection;
-} VP;
+	glm::vec3 position;
+} CameraUniform;
 
 typedef struct s_KeyPress
 {
@@ -138,7 +139,7 @@ private:
 	Descriptor m_PerPassDescriptor;
 
 	Camera* m_Camera;
-	VP m_VP;
+	CameraUniform m_CameraUniform;
 
 	std::map<int, KeyPress> m_KeyPressedMap;
 
