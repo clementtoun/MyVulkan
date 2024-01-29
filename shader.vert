@@ -29,6 +29,6 @@ void main() {
 
     gl_Position = projection * view * pos;
 
-    Normal = normalize(mat3(transpose(inverse(model))) * inNormal);
+    Normal = mat3(transpose(inverse(model))) * inNormal;
     FragColor = inColor;
 }

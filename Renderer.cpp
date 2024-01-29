@@ -113,12 +113,12 @@ Renderer::Renderer(const std::string& ApplicationName, uint32_t ApplicationVersi
     }
     */
 
-    auto teapot = MeshLoader::loadMesh("./Models/teapot.obj");
+    auto teapot = MeshLoader::loadMesh("./Models/Sponza/sponza.obj");
     if (teapot)
     {
         teapot->CreateVertexBuffers(m_Allocator, m_Device, m_TransferPool, m_TranferQueue, m_QueueFamilyIndices.transferFamily.value(), m_QueueFamilyIndices.graphicsFamily.value());
         teapot->CreateIndexBuffers(m_Allocator, m_Device, m_TransferPool, m_TranferQueue, m_QueueFamilyIndices.transferFamily.value(), m_QueueFamilyIndices.graphicsFamily.value());
-        teapot->SetModel(glm::scale(glm::mat4(1.), glm::vec3(1.)));
+        teapot->SetModel(glm::scale(glm::mat4(1.), glm::vec3(0.01)));
         m_Meshes.push_back(teapot);
     }
 
