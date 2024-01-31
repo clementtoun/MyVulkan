@@ -59,10 +59,11 @@ void main() {
 
     vec3 fDiff = FragColor / PI;
     vec3 fSpec = D(NH, alpha) * F * GGX(NL, NV, Roughness) / (4. * NL * NV + MIN_FLT);
+    vec3 BRDF = fDiff + fSpec;
 
     vec3 ambiant = F0 * 0.04;
 
-    vec3 color = ambiant + PI * (kD * fDiff + fSpec) * LigthColor * NL;
+    vec3 color = ambiant + BRDF * LigthColor * NL;
 
     color = color / (color + vec3(1.));
     color = pow(color, vec3(1./2.2)); 

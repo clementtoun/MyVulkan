@@ -118,7 +118,8 @@ Renderer::Renderer(const std::string& ApplicationName, uint32_t ApplicationVersi
     {
         teapot->CreateVertexBuffers(m_Allocator, m_Device, m_TransferPool, m_TranferQueue, m_QueueFamilyIndices.transferFamily.value(), m_QueueFamilyIndices.graphicsFamily.value());
         teapot->CreateIndexBuffers(m_Allocator, m_Device, m_TransferPool, m_TranferQueue, m_QueueFamilyIndices.transferFamily.value(), m_QueueFamilyIndices.graphicsFamily.value());
-        teapot->SetModel(glm::scale(glm::mat4(1.), glm::vec3(0.01)));
+        auto model = glm::translate(glm::mat4(1.), glm::vec3(0.));
+        teapot->SetModel(glm::scale(model, glm::vec3(0.001)));
         m_Meshes.push_back(teapot);
     }
 
@@ -139,7 +140,7 @@ Renderer::Renderer(const std::string& ApplicationName, uint32_t ApplicationVersi
 
     auto extent = m_SwapChain.GetExtent();
     m_Camera = new EulerCamera(glm::vec3(3., 5.5, 5.), glm::vec3(0., 1., 0.), glm::vec3(0., 1., 0.), 45., extent.width / (double)extent.height, 0.001, 100.);
-    m_Camera->SetSpeed(10.);
+    m_Camera->SetSpeed(5.);
     m_Camera->SetMouseSensibility(1.);
 }
 
@@ -965,10 +966,7 @@ bool Renderer::WindowShouldClose()
 
 void Renderer::Draw()
 {
-    m_DeltaTime = std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - m_LastTime).count();
-    m_LastTime = std::chrono::high_resolution_clock::now();
     glfwPollEvents();
-    ProcessKeyInput();
 
     if (m_needRecordCommandBuffer)
     {
@@ -1004,8 +1002,6 @@ void Renderer::Draw()
         std::cout << "Failed to acquire next image !" << std::endl;
     }
 
-    UpdateUniform();
-
     if (m_ImagesInFlight[imageIndex] != VK_NULL_HANDLE) {
         vkWaitForFences(m_Device, 1, &m_ImagesInFlight[imageIndex], VK_TRUE, UINT64_MAX);
     }
@@ -1028,6 +1024,11 @@ void Renderer::Draw()
     submitsInfo.pSignalSemaphores = signalSemaphores;
 
     vkResetFences(m_Device, 1, &m_InFlightFences[m_CurrentFrame]);
+
+    m_DeltaTime = std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - m_LastTime).count();
+    m_LastTime = std::chrono::high_resolution_clock::now();
+    ProcessKeyInput();
+    UpdateUniform();
 
     vkQueueSubmit(m_GraphicsQueue, 1, &submitsInfo, m_InFlightFences[m_CurrentFrame]);
 
@@ -1063,8 +1064,6 @@ void Renderer::Draw()
     }
 
     m_CurrentFrame = (m_CurrentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
-
-    glfwSwapBuffers(m_Window.getWindow());
 }
 
 void Renderer::UpdateUniform()

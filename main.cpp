@@ -21,7 +21,8 @@ int main(int argc, char* argv[])
 
         auto end = std::chrono::high_resolution_clock::now();
 
-        double fps = 1. / std::chrono::duration<double>(end - start).count();
+        double s = std::chrono::duration<double>(end - start).count();
+        double fps = 1. / s;
 
         if (frameCountBeforeFpsAverage < 100)
         {
@@ -31,7 +32,7 @@ int main(int argc, char* argv[])
         else
         {
             fpsMoy = fps * alpha + (1 - alpha) * fpsMoy;
-            //std::cout << "Average fps: " << fpsMoy << std::endl;
+            //std::cout << "Average fps: " << fpsMoy << "\nms: " << s * 1000. << std::endl;
         }
     }
 

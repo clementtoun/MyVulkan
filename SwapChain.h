@@ -6,8 +6,8 @@
 #include <vector>
 #include <array>
 
-//#define PRESENT_MODE VK_PRESENT_MODE_FIFO_KHR
-#define PRESENT_MODE VK_PRESENT_MODE_MAILBOX_KHR
+#define PRESENT_MODE VK_PRESENT_MODE_FIFO_KHR
+//#define PRESENT_MODE VK_PRESENT_MODE_MAILBOX_KHR
 
 struct SwapChainSupportDetails {
 	VkSurfaceCapabilitiesKHR capabilities;
