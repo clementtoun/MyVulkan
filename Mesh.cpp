@@ -1,5 +1,10 @@
 #include "Mesh.h"
 
+Mesh::Mesh()
+{
+	m_Model = glm::mat4(1.);
+}
+
 Mesh::Mesh(const std::vector<Vertex>& vertexs, const std::vector<uint32_t>& indexes)
 {
 	m_Vertexs = vertexs;
@@ -42,6 +47,26 @@ void Mesh::SetIndexes(const std::vector<uint32_t>& indexes)
 const std::vector<uint32_t>& Mesh::GetIndexes()
 {
 	return m_Indexes;
+}
+
+void Mesh::AddVertex(const Vertex& vertex)
+{
+	m_Vertexs.push_back(vertex);
+}
+
+void Mesh::AddIndex(const uint32_t& index)
+{
+	m_Indexes.push_back(index);
+}
+
+void Mesh::AddPrimitives(const Primitive& primitive)
+{
+	m_Primitves.push_back(primitive);
+}
+
+const std::vector<Primitive>& Mesh::GetPrimitives()
+{
+	return m_Primitves;
 }
 
 void Mesh::CreateVertexBuffers(VmaAllocator allocator, VkDevice device, VkCommandPool transferPool, VkQueue transferQueue, uint32_t transferFamilyIndice, uint32_t graphicFamilyIndice)
@@ -158,7 +183,7 @@ const glm::mat4& Mesh::GetModel()
 	return m_Model;
 }
 
-void Mesh::SetModel(const glm::mat4 model)
+void Mesh::SetModel(const glm::mat4& model)
 {
 	m_Model = model;
 }

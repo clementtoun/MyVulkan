@@ -113,14 +113,26 @@ Renderer::Renderer(const std::string& ApplicationName, uint32_t ApplicationVersi
     }
     */
 
-    auto teapot = MeshLoader::loadMesh("./Models/Sponza/sponza.obj");
+    /*
+    auto teapot = MeshLoader::loadMeshObj("./Models/Sponza/sponza.obj");
     if (teapot)
     {
         teapot->CreateVertexBuffers(m_Allocator, m_Device, m_TransferPool, m_TranferQueue, m_QueueFamilyIndices.transferFamily.value(), m_QueueFamilyIndices.graphicsFamily.value());
         teapot->CreateIndexBuffers(m_Allocator, m_Device, m_TransferPool, m_TranferQueue, m_QueueFamilyIndices.transferFamily.value(), m_QueueFamilyIndices.graphicsFamily.value());
         auto model = glm::translate(glm::mat4(1.), glm::vec3(0.));
-        teapot->SetModel(glm::scale(model, glm::vec3(0.001)));
+        teapot->SetModel(glm::scale(model, glm::vec3(0.01)));
         m_Meshes.push_back(teapot);
+    }
+    */
+
+    auto meshes = MeshLoader::loadGltf("./Models/SponzaGLTF/glTF/Sponza.gltf");
+
+    for (auto mesh : meshes)
+    {
+        mesh->CreateVertexBuffers(m_Allocator, m_Device, m_TransferPool, m_TranferQueue, m_QueueFamilyIndices.transferFamily.value(), m_QueueFamilyIndices.graphicsFamily.value());
+        mesh->CreateIndexBuffers(m_Allocator, m_Device, m_TransferPool, m_TranferQueue, m_QueueFamilyIndices.transferFamily.value(), m_QueueFamilyIndices.graphicsFamily.value());
+        mesh->SetModel(glm::scale(glm::identity<glm::mat4>(), glm::vec3(1.)));
+        m_Meshes.push_back(mesh);
     }
 
     CreatePerMeshDescriptor();
@@ -133,14 +145,12 @@ Renderer::Renderer(const std::string& ApplicationName, uint32_t ApplicationVersi
     fragmentShader.cleanup(m_Device);
 
     CreateCommandBuffers();
-    for (int i = 0; i < m_SwapChain.GetFramebuffers().size(); i++)
-        RecordCommandBuffer(m_CommandBuffers[i], i);
 
     CreateSyncObject();
 
     auto extent = m_SwapChain.GetExtent();
-    m_Camera = new EulerCamera(glm::vec3(3., 5.5, 5.), glm::vec3(0., 1., 0.), glm::vec3(0., 1., 0.), 45., extent.width / (double)extent.height, 0.001, 100.);
-    m_Camera->SetSpeed(5.);
+    m_Camera = new EulerCamera(glm::vec3(3., 5.5, 5.), glm::vec3(0., 1., 0.), glm::vec3(0., 1., 0.), 90., extent.width / (double)extent.height, 1., 1000000.);
+    m_Camera->SetSpeed(1000.);
     m_Camera->SetMouseSensibility(1.);
 }
 
@@ -507,7 +517,7 @@ void Renderer::CreateRenderPass()
 
 void Renderer::CreatePerMeshDescriptor()
 {
-    uint32_t numMesh = m_Meshes.size();
+    uint32_t numMesh = static_cast<uint32_t>(m_Meshes.size());
 
     VkDescriptorSetLayoutBinding descriptorSetLayoutBinding{};
     descriptorSetLayoutBinding.binding = 0;
@@ -831,7 +841,7 @@ void Renderer::CreateCommandPool()
 
 void Renderer::CreateCommandBuffers() 
 {
-   m_CommandBuffers.resize(m_SwapChain.GetFramebuffers().size());
+   m_CommandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
 
    VkCommandBufferAllocateInfo commandBufferAllocateInfo;
    commandBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -844,12 +854,12 @@ void Renderer::CreateCommandBuffers()
        std::cout << "Command buffer creation failed !" << std::endl;
 }
 
-void Renderer::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex)
+void Renderer::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex, uint32_t currentFrame)
 {
     VkFramebuffer framebuffers = m_SwapChain.GetFramebuffers()[imageIndex];
 
-    auto perMeshDescriptorSet = m_PerMeshDescriptor.GetDescriptorSets()[m_CurrentFrame];
-    auto perPassDescriptorSet = m_PerPassDescriptor.GetDescriptorSets()[m_CurrentFrame];
+    auto perMeshDescriptorSet = m_PerMeshDescriptor.GetDescriptorSets()[currentFrame];
+    auto perPassDescriptorSet = m_PerPassDescriptor.GetDescriptorSets()[currentFrame];
 
     VkCommandBufferBeginInfo beginInfo;
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -911,13 +921,16 @@ void Renderer::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t image
     {
         auto mesh = m_Meshes[i];
 
-        uint32_t offset = i * paddedSize;
+        uint32_t offset = static_cast<uint32_t>(i * paddedSize);
 
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_GraphicPipelineLayout, 0, 1, &perMeshDescriptorSet, 1, &offset);
         mesh->BindVertexBuffer(commandBuffer);
         mesh->BindIndexBuffer(commandBuffer);
 
-        vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(mesh->GetIndexes().size()), 1, 0, 0, 0);
+        for (const auto& primitive : mesh->GetPrimitives())
+        {
+            vkCmdDrawIndexed(commandBuffer, primitive.indexCount, 1, primitive.firstIndex, primitive.vertexOffset, 0);
+        }
     }
 
     vkCmdEndRenderPass(commandBuffer);
@@ -940,7 +953,6 @@ void Renderer::CreateSyncObject()
     m_ImageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
     m_RenderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
     m_InFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
-    m_ImagesInFlight.resize(m_SwapChain.GetImages().size(), VK_NULL_HANDLE);
 
     VkSemaphoreCreateInfo semaphoreInfo{};
     semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -968,17 +980,6 @@ void Renderer::Draw()
 {
     glfwPollEvents();
 
-    if (m_needRecordCommandBuffer)
-    {
-        vkDeviceWaitIdle(m_Device);
-        for (int i = 0; i < m_SwapChain.GetFramebuffers().size(); i++)
-        {
-            vkResetCommandBuffer(m_CommandBuffers[i], 0);
-            RecordCommandBuffer(m_CommandBuffers[i], i);
-        }
-        m_needRecordCommandBuffer = false;
-    }
-
     vkWaitForFences(m_Device, 1, &m_InFlightFences[m_CurrentFrame], VK_TRUE, UINT64_MAX);
 
     uint32_t imageIndex;
@@ -994,19 +995,13 @@ void Renderer::Draw()
         CreateDepthRessources();
         m_SwapChain.CreateFramebuffer(m_Device, m_RenderPass.getRenderPass(), m_DepthImage.GetImageView());
         CreateCommandBuffers();
-        for (int i = 0; i < m_SwapChain.GetFramebuffers().size(); i++)
-            RecordCommandBuffer(m_CommandBuffers[i], i);
         return;
     }
     else if (result != VK_SUCCESS) {
         std::cout << "Failed to acquire next image !" << std::endl;
     }
 
-    if (m_ImagesInFlight[imageIndex] != VK_NULL_HANDLE) {
-        vkWaitForFences(m_Device, 1, &m_ImagesInFlight[imageIndex], VK_TRUE, UINT64_MAX);
-    }
-
-    m_ImagesInFlight[imageIndex] = m_InFlightFences[m_CurrentFrame];
+    vkResetFences(m_Device, 1, &m_InFlightFences[m_CurrentFrame]);
 
     VkSemaphore waitSemaphores[] = { m_ImageAvailableSemaphores[m_CurrentFrame] };
     VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
@@ -1019,16 +1014,17 @@ void Renderer::Draw()
     submitsInfo.pWaitSemaphores = waitSemaphores;
     submitsInfo.pWaitDstStageMask = waitStages;
     submitsInfo.commandBufferCount = 1;
-    submitsInfo.pCommandBuffers = &m_CommandBuffers[imageIndex];
+    submitsInfo.pCommandBuffers = &m_CommandBuffers[m_CurrentFrame];
     submitsInfo.signalSemaphoreCount = 1;
     submitsInfo.pSignalSemaphores = signalSemaphores;
-
-    vkResetFences(m_Device, 1, &m_InFlightFences[m_CurrentFrame]);
 
     m_DeltaTime = std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - m_LastTime).count();
     m_LastTime = std::chrono::high_resolution_clock::now();
     ProcessKeyInput();
     UpdateUniform();
+
+    vkResetCommandBuffer(m_CommandBuffers[m_CurrentFrame], 0);
+    RecordCommandBuffer(m_CommandBuffers[m_CurrentFrame], imageIndex, m_CurrentFrame);
 
     vkQueueSubmit(m_GraphicsQueue, 1, &submitsInfo, m_InFlightFences[m_CurrentFrame]);
 
@@ -1054,8 +1050,6 @@ void Renderer::Draw()
         CreateDepthRessources();
         m_SwapChain.CreateFramebuffer(m_Device, m_RenderPass.getRenderPass(), m_DepthImage.GetImageView());
         CreateCommandBuffers();
-        for (int i = 0; i < m_SwapChain.GetFramebuffers().size(); i++)
-            RecordCommandBuffer(m_CommandBuffers[i], i);
         m_FramebufferResized = false;
         return;
     }
@@ -1119,25 +1113,24 @@ std::map<int, KeyPress>* Renderer::GetKeyPressedMap()
 
 void Renderer::ProcessKeyInput()
 {
+    float fDeltaTime = float(m_DeltaTime);
+
     if (m_KeyPressedMap[GLFW_KEY_W].current)
-        m_Camera->Move(FORWARD, m_DeltaTime);
+        m_Camera->Move(FORWARD, fDeltaTime);
     if (m_KeyPressedMap[GLFW_KEY_A].current)
-        m_Camera->Move(LEFT, m_DeltaTime);
+        m_Camera->Move(LEFT, fDeltaTime);
     if (m_KeyPressedMap[GLFW_KEY_S].current)
-        m_Camera->Move(BACKWARD, m_DeltaTime);
+        m_Camera->Move(BACKWARD, fDeltaTime);
     if (m_KeyPressedMap[GLFW_KEY_D].current)
-        m_Camera->Move(RIGHT, m_DeltaTime);
+        m_Camera->Move(RIGHT, fDeltaTime);
     if (m_KeyPressedMap[GLFW_KEY_LEFT_SHIFT].current)
-        m_Camera->Move(DOWN, m_DeltaTime);
+        m_Camera->Move(DOWN, fDeltaTime);
     if (m_KeyPressedMap[GLFW_KEY_SPACE].current)
-        m_Camera->Move(UP, m_DeltaTime);
+        m_Camera->Move(UP, fDeltaTime);
     if (m_KeyPressedMap[GLFW_KEY_ESCAPE].current)
         glfwSetWindowShouldClose(m_Window.getWindow(), true);
     if (m_KeyPressedMap[GLFW_KEY_Z].previous == GLFW_RELEASE && m_KeyPressedMap[GLFW_KEY_Z].current == GLFW_PRESS)
-    {
         m_drawFill = !m_drawFill;
-        m_needRecordCommandBuffer = true;
-    }
 
     for (int i = 32; i < 349; i++)
         m_KeyPressedMap[i].previous = m_KeyPressedMap[i].current;

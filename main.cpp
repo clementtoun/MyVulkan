@@ -6,7 +6,7 @@ int main(int argc, char* argv[])
 {
     system(".\\CompileShaders");
 
-    Renderer renderer = Renderer("MyFirstVulkanApp", VK_MAKE_API_VERSION(0, 1, 3, 0), "MyEngine", VK_MAKE_API_VERSION(0, 1, 3, 0), 1280*1.5, 720*1.5);
+    Renderer renderer = Renderer("MyFirstVulkanApp", VK_MAKE_API_VERSION(0, 1, 3, 0), "MyEngine", VK_MAKE_API_VERSION(0, 1, 3, 0), int(1280*1.5), int(720*1.5));
 
     double fpsMoy;
     double alpha = 0.00005;

@@ -4,6 +4,14 @@
 #include <vector>
 #include "VulkanBase.h"
 
+struct Primitive
+{
+	uint32_t firstIndex;
+	uint32_t indexCount;
+	uint32_t vertexOffset;
+	uint32_t materialID;
+};
+
 struct Vertex
 {
 	glm::vec3 pos;
@@ -43,6 +51,8 @@ struct Vertex
 class Mesh
 {
 public:
+	Mesh();
+
 	Mesh(const std::vector<Vertex>& vertexs, const std::vector<uint32_t>& indexes);
 
 	void DestroyBuffer(VmaAllocator allocator, VkDevice device);
@@ -52,6 +62,14 @@ public:
 
 	void SetIndexes(const std::vector<uint32_t>& indexes);
 	const std::vector<uint32_t>& GetIndexes();
+
+	void AddVertex(const Vertex& vertex);
+
+	void AddIndex(const uint32_t& index);
+
+	void AddPrimitives(const Primitive& primitive);
+
+	const std::vector<Primitive>& GetPrimitives();
 
 	void CreateVertexBuffers(VmaAllocator allocator, VkDevice device, VkCommandPool transferPool, VkQueue transferQueue, uint32_t transferFamilyIndice, uint32_t graphicFamilyIndice);
 
@@ -63,7 +81,7 @@ public:
 
 	const glm::mat4& GetModel();
 
-	void SetModel(const glm::mat4 model);
+	void SetModel(const glm::mat4& model);
 
 	void AutoComputeNormals();
 
@@ -73,11 +91,13 @@ private:
 	std::vector<Vertex> m_Vertexs;
 	std::vector<uint32_t> m_Indexes;
 
+	std::vector<Primitive> m_Primitves;
+
 	glm::mat4 m_Model;
 
 	VkBuffer m_VertexBuffer = VK_NULL_HANDLE;
-	VmaAllocation m_VertexBufferAlloc;
-	VkBuffer m_IndexBuffer;
-	VmaAllocation m_IndexBufferAlloc;
+	VmaAllocation m_VertexBufferAlloc = nullptr;
+	VkBuffer m_IndexBuffer = VK_NULL_HANDLE;
+	VmaAllocation m_IndexBufferAlloc = nullptr;
 };
 

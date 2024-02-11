@@ -32,7 +32,7 @@ const std::vector<const char*> deviceExtensions = {
 	VK_KHR_SWAPCHAIN_EXTENSION_NAME
 };
 
-#define MAX_FRAMES_IN_FLIGHT 1
+#define MAX_FRAMES_IN_FLIGHT 2
 
 typedef struct s_CameraUniform
 {
@@ -82,7 +82,7 @@ public:
 
 	void CreateCommandBuffers();
 
-	void RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
+	void RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex, uint32_t currentFrame);
 
 	void CleanupCommandBuffers();
 
@@ -133,7 +133,6 @@ private:
 	std::vector<VkSemaphore> m_ImageAvailableSemaphores;
 	std::vector<VkSemaphore> m_RenderFinishedSemaphores;
 	std::vector<VkFence> m_InFlightFences;
-	std::vector<VkFence> m_ImagesInFlight;
 	Image m_DepthImage;
 	Descriptor m_PerMeshDescriptor;
 	Descriptor m_PerPassDescriptor;
@@ -149,6 +148,5 @@ private:
 	double m_DeltaTime = 0;
 
 	bool m_drawFill = true;
-	bool m_needRecordCommandBuffer = false;
 };
 

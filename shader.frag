@@ -47,17 +47,19 @@ void main() {
     float NV = max(0., dot(N, V));
     float VH = max(0., dot(V, H));
 
-    float Metallic = 0.5;
-    vec3 F0 = vec3(0.04);
-    F0 = mix(F0, FragColor, Metallic);
+    vec3 albedo = vec3(1.02, 0.71, 0.29);
 
-    float Roughness = 0.25;
+    float Metallic = 1.0;
+    vec3 F0 = vec3(0.04);
+    F0 = mix(F0, albedo, Metallic);
+
+    float Roughness = 0.3;
     float alpha = Roughness*Roughness;
 
     vec3 F = FUnreal(VH, F0);
     vec3 kD = (1. - F) * (1. - Metallic);
 
-    vec3 fDiff = FragColor / PI;
+    vec3 fDiff = albedo / PI;
     vec3 fSpec = D(NH, alpha) * F * GGX(NL, NV, Roughness) / (4. * NL * NV + MIN_FLT);
     vec3 BRDF = fDiff + fSpec;
 

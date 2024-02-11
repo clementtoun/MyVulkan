@@ -8,7 +8,7 @@ Camera::Camera() :
     m_Up = glm::cross(m_Forward, m_Left);
 
     UpdateViewMatrix();
-    m_Projection = glm::perspective(m_Fov, m_Aspect, m_Near, m_Far);
+    m_Projection = glm::perspective(glm::radians(m_Fov), m_Aspect, m_Near, m_Far);
 }
 
 Camera::Camera(glm::vec3 position, glm::vec3 target, glm::vec3 up, double fov, double aspect, double near, double far) :
@@ -19,7 +19,7 @@ Camera::Camera(glm::vec3 position, glm::vec3 target, glm::vec3 up, double fov, d
     m_Up = glm::cross(m_Forward, m_Left);
 
     UpdateViewMatrix();
-    m_Projection = glm::perspective(m_Fov, m_Aspect, m_Near, m_Far);
+    m_Projection = glm::perspective(glm::radians(m_Fov), m_Aspect, m_Near, m_Far);
 }
 
 void Camera::SetAspect(double aspect)
