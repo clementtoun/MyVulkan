@@ -20,7 +20,7 @@
 
 const std::string validationLayers = "VK_LAYER_KHRONOS_validation";
 
-const std::vector<std::string> wantedLayers = {};
+const std::vector<std::string> wantedLayers = { "VK_LAYER_LUNARG_monitor" };
 
 #ifdef NDEBUG
 	constexpr bool enableValidationLayers = false;
