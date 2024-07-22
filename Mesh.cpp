@@ -1,4 +1,7 @@
 #include "Mesh.h"
+#include "VulkanUtils.h"
+#include <iostream>
+#include <list>
 
 Mesh::Mesh()
 {
@@ -59,15 +62,17 @@ void Mesh::AddIndex(const uint32_t& index)
 	m_Indexes.push_back(index);
 }
 
-void Mesh::AddPrimitives(const Primitive& primitive)
+size_t Mesh::AddPrimitives(const Primitive& primitive)
 {
 	m_Primitves.push_back(primitive);
+
+	return m_Primitves.size() - 1;
 }
 
 const std::vector<Primitive>& Mesh::GetPrimitives()
 {
 	return m_Primitves;
-}
+}  
 
 void Mesh::CreateVertexBuffers(VmaAllocator allocator, VkDevice device, VkCommandPool transferPool, VkQueue transferQueue, uint32_t transferFamilyIndice, uint32_t graphicFamilyIndice)
 {
@@ -111,7 +116,7 @@ void Mesh::CreateVertexBuffers(VmaAllocator allocator, VkDevice device, VkComman
 
 	vmaCreateBuffer(allocator, &bufferInfo, &allocCreateInfo, &m_VertexBuffer, &m_VertexBufferAlloc, NULL);
 
-	CopyBuffer(device, transferPool, transferQueue, stagingBuf, m_VertexBuffer, vertexBufferSize);
+	VulkanUtils::CopyBuffer(device, transferPool, transferQueue, stagingBuf, m_VertexBuffer, vertexBufferSize);
 
 	vkDestroyBuffer(device, stagingBuf, nullptr);
 	vmaFreeMemory(allocator, stagingAlloc);
@@ -160,7 +165,7 @@ void Mesh::CreateIndexBuffers(VmaAllocator allocator, VkDevice device, VkCommand
 
 	vmaCreateBuffer(allocator, &bufferInfo, &allocCreateInfo, &m_IndexBuffer, &m_IndexBufferAlloc, NULL);
 
-	CopyBuffer(device, transferPool, transferQueue, stagingBuf, m_IndexBuffer, indexBufferSize);
+	VulkanUtils::CopyBuffer(device, transferPool, transferQueue, stagingBuf, m_IndexBuffer, indexBufferSize);
 
 	vkDestroyBuffer(device, stagingBuf, nullptr);
 	vmaFreeMemory(allocator, stagingAlloc);
@@ -188,58 +193,222 @@ void Mesh::SetModel(const glm::mat4& model)
 	m_Model = model;
 }
 
-void Mesh::AutoComputeNormals()
+void Mesh::AutoComputeNormalsPrimitive(size_t primitiveIndex)
 {
-	for (auto& vertex : m_Vertexs)
-		vertex.normal = glm::vec3(0.);
+	Primitive& p = m_Primitves[primitiveIndex];
 
-	for (uint32_t i = 0; i < m_Indexes.size(); i+=3)
+	uint32_t lastPrimitiveVertexIdx = p.vertexOffset + p.vertexCount;
+
+	for (uint32_t i = p.vertexOffset; i < lastPrimitiveVertexIdx; i++)
+		m_Vertexs[i].normal = glm::vec3(0.);
+
+	for (uint32_t i = p.firstIndex; i < p.firstIndex + p.indexCount; i += 3)
 	{
-		uint32_t idx0 = m_Indexes[i];
-		uint32_t idx1 = m_Indexes[i+1];
-		uint32_t idx2 = m_Indexes[i+2];
+		uint32_t idx0 = m_Indexes[i] + p.vertexOffset;
+		uint32_t idx1 = m_Indexes[i + 1] + p.vertexOffset;
+		uint32_t idx2 = m_Indexes[i + 2] + p.vertexOffset;
 
-		glm::vec3 normal = glm::cross(m_Vertexs[idx1].pos - m_Vertexs[idx0].pos, m_Vertexs[idx2].pos - m_Vertexs[idx0].pos);
+		glm::vec3 normal = glm::normalize(glm::cross(m_Vertexs[idx1].pos - m_Vertexs[idx0].pos, m_Vertexs[idx2].pos - m_Vertexs[idx0].pos));
 
 		m_Vertexs[idx0].normal += normal;
 		m_Vertexs[idx1].normal += normal;
 		m_Vertexs[idx2].normal += normal;
 	}
 
-	for (auto& vertex : m_Vertexs)
-		vertex.normal = glm::normalize(vertex.normal);
+	for (uint32_t i = p.vertexOffset; i < lastPrimitiveVertexIdx; i++)
+		m_Vertexs[i].normal = glm::normalize(m_Vertexs[i].normal);
 }
 
-void Mesh::CopyBuffer(VkDevice device, VkCommandPool transferPool, VkQueue transferQueue, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size)
+void Mesh::AutoComputeTangentsBiTangentsPrimitive(size_t primitiveIndex)
 {
-	VkCommandBufferAllocateInfo commandBufferallocInfo{};
-	commandBufferallocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-	commandBufferallocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-	commandBufferallocInfo.commandPool = transferPool;
-	commandBufferallocInfo.commandBufferCount = 1;
+	Primitive& p = m_Primitves[primitiveIndex];
 
-	VkCommandBuffer commandBuffer;
-	vkAllocateCommandBuffers(device, &commandBufferallocInfo, &commandBuffer);
+	uint32_t lastPrimitiveVertexIdx = p.vertexOffset + p.vertexCount;
 
-	VkCommandBufferBeginInfo beginInfo{};
-	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+	for (uint32_t i = p.vertexOffset; i < lastPrimitiveVertexIdx; i++)
+		m_Vertexs[i].tangent = glm::vec3(0.F);
 
-	vkBeginCommandBuffer(commandBuffer, &beginInfo);
+	for (uint32_t i = p.firstIndex; i < p.firstIndex + p.indexCount; i += 3)
+	{
+		uint32_t idx0 = m_Indexes[i] + p.vertexOffset;
+		uint32_t idx1 = m_Indexes[i + 1] + p.vertexOffset;
+		uint32_t idx2 = m_Indexes[i + 2] + p.vertexOffset;
 
-	VkBufferCopy copyRegion{};
-	copyRegion.size = size;
-	vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
+		glm::vec3 E1 = m_Vertexs[idx1].pos - m_Vertexs[idx0].pos;
+		glm::vec3 E2 = m_Vertexs[idx2].pos - m_Vertexs[idx0].pos;
 
-	vkEndCommandBuffer(commandBuffer);
+		float u10 = m_Vertexs[idx1].tex_coord.x - m_Vertexs[idx0].tex_coord.x;
+		float v10 = m_Vertexs[idx1].tex_coord.y - m_Vertexs[idx0].tex_coord.y;
+		float u20 = m_Vertexs[idx2].tex_coord.x - m_Vertexs[idx0].tex_coord.x;
+		float v20 = m_Vertexs[idx2].tex_coord.y - m_Vertexs[idx0].tex_coord.y;
 
-	VkSubmitInfo submitInfo{};
-	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	submitInfo.commandBufferCount = 1;
-	submitInfo.pCommandBuffers = &commandBuffer;
+		float denom = u10 * v20 - v10 * u20;
 
-	vkQueueSubmit(transferQueue, 1, &submitInfo, VK_NULL_HANDLE);
-	vkQueueWaitIdle(transferQueue);
+		glm::vec3 tangent = glm::vec3(1.F, 0.F, 0.F);
+		glm::vec3 biTangent = glm::vec3(0.F, 1.F, 0.F);
 
-	vkFreeCommandBuffers(device, transferPool, 1, &commandBuffer);
+		if (denom != 0.F)
+		{
+			tangent = (v20 * E1 - v10 * E2) / denom;
+			biTangent = (u10 * E2 - u20 * E1) / denom;
+		}
+
+		m_Vertexs[idx0].tangent += tangent;
+		m_Vertexs[idx1].tangent += tangent;
+		m_Vertexs[idx2].tangent += tangent;
+
+		m_Vertexs[idx0].biTangent += biTangent;
+		m_Vertexs[idx1].biTangent += biTangent;
+		m_Vertexs[idx2].biTangent += biTangent;
+	}
+
+	for (uint32_t i = p.vertexOffset; i < lastPrimitiveVertexIdx; i++)
+	{
+		const glm::vec3 normal = m_Vertexs[i].normal;
+		glm::vec3& tangent = m_Vertexs[i].tangent;
+		glm::vec3& biTangent = m_Vertexs[i].biTangent;
+
+		tangent = glm::normalize(tangent - glm::dot(tangent, normal) * normal);
+
+		biTangent = glm::cross(normal, tangent) * (glm::dot(glm::cross(normal, tangent), biTangent) < 0.F ? -1.F : 1.F);
+	}
 }
+
+void Mesh::AutoComputeBiTangentsPrimitive(size_t primitiveIndex)
+{
+	Primitive& p = m_Primitves[primitiveIndex];
+
+	for (uint32_t i = p.vertexOffset; i < p.vertexOffset + p.vertexCount; i++)
+	{
+		const glm::vec3 normal = m_Vertexs[i].normal;
+		const glm::vec3 tangent = m_Vertexs[i].tangent;
+		m_Vertexs[i].tangent = glm::normalize(tangent - glm::dot(tangent, normal) * normal);
+
+		m_Vertexs[i].biTangent = glm::cross(m_Vertexs[i].normal, m_Vertexs[i].tangent);
+	}
+}
+
+void Mesh::AutoComputeNormals()
+{
+	for (size_t i = 0; i < m_Primitves.size(); i++)
+		AutoComputeNormalsPrimitive(i);
+}
+
+void Mesh::AutoComputeTangentsBiTangents()
+{
+	for (size_t i = 0; i < m_Primitves.size(); i++)
+		AutoComputeTangentsBiTangentsPrimitive(i);
+}
+
+void Mesh::AutoComputeBiTangents()
+{
+	for (size_t i = 0; i < m_Primitves.size(); i++)
+		AutoComputeBiTangentsPrimitive(i);
+}
+
+void Mesh::AverageDuplicatedVertexNormals()
+{
+	struct posIndex {
+		glm::vec3 pos;
+		size_t index;
+	};
+
+	std::list<struct posIndex> posIndexList;
+
+	for (size_t i = 0; i < m_Vertexs.size(); i++)
+		posIndexList.push_back(struct posIndex(m_Vertexs[i].pos, i));
+
+	std::vector<std::vector<size_t>> duplicatedIndexes;
+	
+	for (auto iIt = posIndexList.begin(); iIt != std::prev(posIndexList.end()); ++iIt)
+	{
+		std::vector<size_t> currentDuplicatedIndexes;
+		bool isDuplicated = false;
+		auto ipos = iIt->pos;
+
+		for (auto jIt = std::next(iIt); jIt != posIndexList.end(); ++jIt)
+		{
+			auto jpos = jIt->pos;
+
+			constexpr float epsilon = std::numeric_limits<float>::epsilon();
+
+			if (fabs(ipos.x - jpos.x) <= epsilon && fabs(ipos.y - jpos.y) <= epsilon && fabs(ipos.z - jpos.z) <= epsilon)
+			{
+				currentDuplicatedIndexes.push_back(jIt->index);
+				jIt = std::prev(posIndexList.erase(jIt));
+
+				if (!isDuplicated)
+				{
+					currentDuplicatedIndexes.push_back(iIt->index);
+					isDuplicated = true;
+				}
+			}
+
+		}
+
+		if (isDuplicated)
+			duplicatedIndexes.push_back(currentDuplicatedIndexes);
+	}
+
+	for (size_t primitiveIndex = 0; primitiveIndex < m_Primitves.size(); primitiveIndex++)
+	{
+		Primitive& p = m_Primitves[primitiveIndex];
+
+		uint32_t lastPrimitiveVertexIdx = p.vertexOffset + p.vertexCount;
+
+		for (uint32_t i = p.vertexOffset; i < lastPrimitiveVertexIdx; i++)
+			m_Vertexs[i].normal = glm::vec3(0.);
+
+		for (uint32_t i = p.firstIndex; i < p.firstIndex + p.indexCount; i += 3)
+		{
+			uint32_t idx0 = m_Indexes[i] + p.vertexOffset;
+			uint32_t idx1 = m_Indexes[i + 1] + p.vertexOffset;
+			uint32_t idx2 = m_Indexes[i + 2] + p.vertexOffset;
+
+			glm::vec3 normal = glm::normalize(glm::cross(m_Vertexs[idx1].pos - m_Vertexs[idx0].pos, m_Vertexs[idx2].pos - m_Vertexs[idx0].pos));
+
+			int duplicated_face_group_idx = -1;
+
+			for (size_t dGi = 0; dGi < duplicatedIndexes.size() && duplicated_face_group_idx == -1; dGi++)
+			{
+				for (auto vertexIndex : duplicatedIndexes[dGi])
+				{
+					if (idx0 == vertexIndex || idx1 == vertexIndex || idx2 == vertexIndex)
+					{
+						duplicated_face_group_idx = dGi;
+						break;
+					}
+				}
+			}
+
+			if (duplicated_face_group_idx != -1)
+			{
+				for (auto vertexIndex : duplicatedIndexes[duplicated_face_group_idx])
+				{
+					if (idx0 != vertexIndex && idx1 != vertexIndex && idx2 != vertexIndex)
+					{
+						m_Vertexs[vertexIndex].normal += normal;
+					}
+
+				}
+			}
+			
+			m_Vertexs[idx0].normal += normal;
+			m_Vertexs[idx1].normal += normal;
+			m_Vertexs[idx2].normal += normal;
+		}
+	}
+
+	for (size_t primitiveIndex = 0; primitiveIndex < m_Primitves.size(); primitiveIndex++)
+	{
+		Primitive& p = m_Primitves[primitiveIndex];
+		uint32_t lastPrimitiveVertexIdx = p.vertexOffset + p.vertexCount;
+		for (uint32_t i = p.vertexOffset; i < lastPrimitiveVertexIdx; i++)
+		{
+			m_Vertexs[i].normal = glm::normalize(m_Vertexs[i].normal);
+		}
+	}
+}
+
+
+

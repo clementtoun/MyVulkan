@@ -148,6 +148,52 @@ std::string VulkanUtils::vkPhysicalDeviceInfoToString(const VkPhysicalDevice& ph
     return log;
 }
 
+VkCommandBuffer VulkanUtils::BeginSingleTimeCommands(VkDevice device, VkCommandPool transferPool)
+{
+    VkCommandBufferAllocateInfo commandBufferallocInfo{};
+    commandBufferallocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    commandBufferallocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    commandBufferallocInfo.commandPool = transferPool;
+    commandBufferallocInfo.commandBufferCount = 1;
+
+    VkCommandBuffer commandBuffer;
+    vkAllocateCommandBuffers(device, &commandBufferallocInfo, &commandBuffer);
+
+    VkCommandBufferBeginInfo beginInfo{};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+    vkBeginCommandBuffer(commandBuffer, &beginInfo);
+
+    return commandBuffer;
+}
+
+void VulkanUtils::EndSingleTimeCommands(VkDevice device, VkCommandPool transferPool, VkQueue transferQueue, VkCommandBuffer commandBuffer)
+{
+    vkEndCommandBuffer(commandBuffer);
+
+    VkSubmitInfo submitInfo{};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &commandBuffer;
+
+    vkQueueSubmit(transferQueue, 1, &submitInfo, VK_NULL_HANDLE);
+    vkQueueWaitIdle(transferQueue);
+
+    vkFreeCommandBuffers(device, transferPool, 1, &commandBuffer);
+}
+
+void VulkanUtils::CopyBuffer(VkDevice device, VkCommandPool transferPool, VkQueue transferQueue, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size)
+{
+    VkCommandBuffer commandBuffer = VulkanUtils::BeginSingleTimeCommands(device, transferPool);
+
+    VkBufferCopy copyRegion{};
+    copyRegion.size = size;
+    vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
+
+    VulkanUtils::EndSingleTimeCommands(device, transferPool, transferQueue, commandBuffer);
+}
+
 std::string VulkanUtils::boolToString(bool b)
 {
     return (b == 0 ? "false" : "true");

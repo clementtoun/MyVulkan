@@ -2,6 +2,7 @@
 
 #include "VulkanBase.h"
 #include "QueueVulkan.h"
+#include "GBuffer.h"
 #include <iostream>
 #include <vector>
 #include <array>
@@ -24,7 +25,7 @@ public:
 
 	void RebuildSwapChain(VkPhysicalDevice physicalDevice, VkDevice device, VkSurfaceKHR surface, GLFWwindow* window, const QueueFamilyIndices& queueFamilyIndices);
 
-	void CreateFramebuffer(VkDevice device, VkRenderPass renderPass, VkImageView depthAttachment);
+	void CreateFramebuffer(VkDevice device, VkRenderPass renderPass, GBuffer& GBuffer, VkImageView depthAttachment);
 
 	SwapChainSupportDetails QuerySupportDetails(VkPhysicalDevice device, VkSurfaceKHR surface);
 

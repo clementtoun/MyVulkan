@@ -105,13 +105,19 @@ void SwapChain::RebuildSwapChain(VkPhysicalDevice physicalDevice, VkDevice devic
     BuildSwapChain(physicalDevice, device, surface, window, queueFamilyIndices);
 }
 
-void SwapChain::CreateFramebuffer(VkDevice device, VkRenderPass renderPass, VkImageView depthAttachment)
+void SwapChain::CreateFramebuffer(VkDevice device, VkRenderPass renderPass, GBuffer& GBuffer, VkImageView depthAttachment)
 {
     m_Framebuffers.resize(m_Images.size());
 
+    auto GBufferImages = GBuffer.GetGBufferImages();
+
     for (int i = 0; i < m_Framebuffers.size(); i++)
     {
-        std::array<VkImageView, 2> attachments = { m_ImageViews[i], depthAttachment };
+        std::array<VkImageView, 6> attachments = { GBufferImages[i].positionImageBuffer.GetImageView(),  
+            GBufferImages[i].normalImageBuffer.GetImageView(),
+            GBufferImages[i].colorImageBuffer.GetImageView(),
+            GBufferImages[i].pbrImageBuffer.GetImageView(),
+            depthAttachment, m_ImageViews[i]};
 
         VkFramebufferCreateInfo framebufferCreateInfo;
         framebufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;

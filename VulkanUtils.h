@@ -14,6 +14,12 @@ public:
 
 	static std::string vkPhysicalDeviceInfoToString(const VkPhysicalDevice& physicalDevice);
 
+	static VkCommandBuffer BeginSingleTimeCommands(VkDevice device, VkCommandPool transferPool);
+
+	static void EndSingleTimeCommands(VkDevice device, VkCommandPool transferPool, VkQueue transferQueue, VkCommandBuffer commandBuffer);
+
+	static void CopyBuffer(VkDevice device, VkCommandPool transferPool, VkQueue transferQueue, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
+
 private:
 	static std::string boolToString(bool b);
 };

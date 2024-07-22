@@ -1,3 +1,6 @@
-C:\VulkanSDK\1.3.250.1\Bin\glslc.exe shader.vert -o vert.spv
-C:\VulkanSDK\1.3.250.1\Bin\glslc.exe shader.frag -o frag.spv
+.\glslc.exe firstShader.vert -o firstVert.spv
+.\glslc.exe firstShader.frag -o firstFrag.spv
+
+.\glslc.exe secondShader.vert -o secondVert.spv
+.\glslc.exe secondShader.frag -o secondFrag.spv
 pause

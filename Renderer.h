@@ -8,9 +8,11 @@
 #include "RenderPass.h"
 #include "Shader.h"
 #include "Mesh.h"
+#include "Materials.h"
 #include "Image.h"
 #include "Descriptor.h"
 #include "Camera.h"
+#include "GBuffer.h"
 #include <iostream>
 #include <string>
 #include <vector>
@@ -32,7 +34,7 @@ const std::vector<const char*> deviceExtensions = {
 	VK_KHR_SWAPCHAIN_EXTENSION_NAME
 };
 
-#define MAX_FRAMES_IN_FLIGHT 2
+#define MAX_FRAMES_IN_FLIGHT 3
 
 typedef struct s_CameraUniform
 {
@@ -76,7 +78,13 @@ public:
 
 	void CreatePerMeshDescriptor();
 
-	void CreateGraphicPipeline(Shader& vertexShader, Shader& fragmentShader);
+	void CreateGBufferDescriptor();
+
+	void UpdateGBufferDescriptor();
+
+	void CreateGraphicPipeline();
+
+	void CreateQuadMesh();
 
 	void CreateCommandPool();
 
@@ -111,6 +119,7 @@ private:
 
 
 	std::vector<Mesh*> m_Meshes;
+	Materials m_Materials;
 
 	VkInstance m_Instance = VK_NULL_HANDLE;
 	GlfwWindow m_Window;
@@ -124,9 +133,11 @@ private:
 	VkQueue m_TranferQueue = VK_NULL_HANDLE;
 	SwapChain m_SwapChain;
 	RenderPass m_RenderPass;
-	VkPipeline m_GraphicPipeline = VK_NULL_HANDLE;
-	VkPipeline m_GraphicPipelineLineMode = VK_NULL_HANDLE;
-	VkPipelineLayout m_GraphicPipelineLayout = VK_NULL_HANDLE;
+	VkPipeline m_GraphicPipelineFirstPass = VK_NULL_HANDLE;
+	VkPipeline m_GraphicPipelineFirstPassLineMode = VK_NULL_HANDLE;
+	VkPipeline m_GraphicPipelineSecondPass = VK_NULL_HANDLE;
+	VkPipelineLayout m_GraphicPipelineFirstPassLayout = VK_NULL_HANDLE;
+	VkPipelineLayout m_GraphicPipelineSecondPassLayout = VK_NULL_HANDLE;
 	VkCommandPool m_TransferPool = VK_NULL_HANDLE;
 	VkCommandPool m_GraphicPool = VK_NULL_HANDLE;
 	std::vector<VkCommandBuffer> m_CommandBuffers;
@@ -136,6 +147,9 @@ private:
 	Image m_DepthImage;
 	Descriptor m_PerMeshDescriptor;
 	Descriptor m_PerPassDescriptor;
+	Descriptor m_GBufferDescriptor;
+	GBuffer m_GBuffer;
+	Mesh m_simpleQuadMesh;
 
 	Camera* m_Camera;
 	CameraUniform m_CameraUniform;

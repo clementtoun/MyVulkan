@@ -4,3 +4,5 @@
 #include <GLFW/glfw3.h>
 #include <vma/vk_mem_alloc.h>
 #include "VkGLM.h"
+#include <stb_image.h>
+#include <stb_image_write.h>

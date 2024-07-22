@@ -1,2 +1,5 @@
-.\glslc.exe shader.vert -o vert.spv
-.\glslc.exe shader.frag -o frag.spv
+.\glslc.exe firstShader.vert -o firstVert.spv
+.\glslc.exe firstShader.frag -o firstFrag.spv
+
+.\glslc.exe secondShader.vert -o secondVert.spv
+.\glslc.exe secondShader.frag -o secondFrag.spv
