@@ -129,7 +129,7 @@ Renderer::Renderer(const std::string& ApplicationName, uint32_t ApplicationVersi
 
     for (auto mesh : meshes)
     {
-        mesh->AverageDuplicatedVertexNormals();
+        //mesh->AverageDuplicatedVertexNormals();
         mesh->CreateVertexBuffers(m_Allocator, m_Device, m_TransferPool, m_TranferQueue, m_QueueFamilyIndices.transferFamily.value(), m_QueueFamilyIndices.graphicsFamily.value());
         mesh->CreateIndexBuffers(m_Allocator, m_Device, m_TransferPool, m_TranferQueue, m_QueueFamilyIndices.transferFamily.value(), m_QueueFamilyIndices.graphicsFamily.value());
          //glm::translate(glm::rotate(glm::mat4(1.0), glm::radians(-90.f), glm::vec3(1., 0., 0.)), glm::vec3(35., 0., 20.)));
@@ -154,8 +154,8 @@ Renderer::Renderer(const std::string& ApplicationName, uint32_t ApplicationVersi
 
     CreateSyncObject();
 
-    m_Camera = new TrackBallCamera(glm::vec3(0., 1., 5.), glm::vec3(0., 0., 0.), glm::vec3(0., 1., 0.), 70., extent.width / (double)extent.height, 0.5, 1000000.);
-    m_Camera->SetSpeed(1.);
+    m_Camera = new QuaternionCamera(glm::vec3(0., 1., 5.), glm::vec3(0., 0., 0.), glm::vec3(0., 1., 0.), 77., extent.width / (double)extent.height, 0.5, 1000000.);
+    m_Camera->SetSpeed(30.);
     m_Camera->SetMouseSensibility(5.);
 }
 

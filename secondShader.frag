@@ -99,6 +99,6 @@ void main() {
 
         color = color / (color + 1.);
 
-        outColor = vec4(N*0.5+0.5, 1.);
+        outColor = vec4(color, 1.);
     }
 }
