@@ -22,6 +22,16 @@ Camera::Camera(glm::vec3 position, glm::vec3 target, glm::vec3 up, double fov, d
     UpdateProjectionMatrix();
 }
 
+Camera::~Camera()
+{
+}
+
+void Camera::ProcessMouseButton(int button, int action, int mods)
+{
+    m_leftClic = (bool) (!button && action);
+    m_newLeftClic = (bool) (!button && action == 1);
+}
+
 void Camera::SetMouseSensibility(float mouseSensibility)
 {
     m_MouseSensibility = mouseSensibility;
@@ -51,6 +61,11 @@ const glm::mat4& Camera::GetProjection()
 const glm::vec3& Camera::GetPosition()
 {
     return m_Position;
+}
+
+float* Camera::GetSpeed()
+{
+    return &m_Speed;
 }
 
 void Camera::UpdateViewMatrix()
@@ -111,18 +126,20 @@ void EulerCamera::Move(Direction direction, float deltaTime)
     UpdateViewMatrix();
 }
 
-void EulerCamera::ProcessMouseMouve(double x, double y, bool leftClick)
+void EulerCamera::ProcessMouseMouve(double x, double y)
 {
-    if (leftClick)
+    if (m_leftClic)
     {
-        m_Yaw += (x - m_LastMouseX) * m_MouseSensibility * 90.;
-        m_Pitch += (m_LastMouseY - y) * m_MouseSensibility * 90.;
+        m_Yaw += (float(x) - m_LastMouseX) * m_MouseSensibility * 90.f;
+        m_Pitch += (m_LastMouseY - float(y)) * m_MouseSensibility * 90.f;
+        m_LastMouseX = float(x);
+        m_LastMouseY = float(y);
         
-        if (m_Yaw >= 360)
-            m_Yaw -= 360;
-        if (m_Yaw <= -360)
-            m_Yaw += 360;
-        m_Pitch = glm::clamp<double>(m_Pitch, -89.9999, 89.9999);
+        if (m_Yaw >= 360.f)
+            m_Yaw -= 360.f;
+        if (m_Yaw <= -360.f)
+            m_Yaw += 360.f;
+        m_Pitch = glm::clamp<float>(m_Pitch, -89.9999f, 89.9999f);
 
         float radPitch = glm::radians(m_Pitch);
         float radYaw = glm::radians(m_Yaw);
@@ -138,9 +155,6 @@ void EulerCamera::ProcessMouseMouve(double x, double y, bool leftClick)
 
         UpdateViewMatrix();
     }
-
-    m_LastMouseX = x;
-    m_LastMouseY = y;
 }
 
 TrackBallCamera::TrackBallCamera() : Camera()
@@ -152,18 +166,20 @@ TrackBallCamera::TrackBallCamera(glm::vec3 position, glm::vec3 target, glm::vec3
 {
 }
 
-void TrackBallCamera::ProcessMouseMouve(double x, double y, bool leftClick)
+void TrackBallCamera::ProcessMouseMouve(double x, double y)
 {
-    if (leftClick)
+    if (m_leftClic)
     {
-        m_Yaw += (x - m_LastMouseX) * m_MouseSensibility * 90.;
-        m_Pitch += (m_LastMouseY - y) * m_MouseSensibility * 90.;
+        m_Yaw += (float(x) - m_LastMouseX) * m_MouseSensibility * 90.f;
+        m_Pitch += (m_LastMouseY - float(y)) * m_MouseSensibility * 90.f;
+        m_LastMouseX = float(x);
+        m_LastMouseY = float(y);
 
-        if (m_Yaw >= 360)
-            m_Yaw -= 360;
-        if (m_Yaw <= -360)
-            m_Yaw += 360;
-        m_Pitch = glm::clamp<double>(m_Pitch, -89.9999, 89.9999);
+        if (m_Yaw >= 360.f)
+            m_Yaw -= 360.f;
+        if (m_Yaw <= -360.f)
+            m_Yaw += 360.f;
+        m_Pitch = glm::clamp<float>(m_Pitch, -89.9999f, 89.9999f);
 
         float distance = glm::length(m_Position);
 
@@ -183,9 +199,6 @@ void TrackBallCamera::ProcessMouseMouve(double x, double y, bool leftClick)
 
         UpdateViewMatrix();
     }
-
-    m_LastMouseX = x;
-    m_LastMouseY = y;
 }
 
 void TrackBallCamera::ProcessScroll(double xoffset, double yoffset)
@@ -247,25 +260,34 @@ void QuaternionCamera::Move(Direction direction, float deltaTime)
     UpdateViewMatrix();
 }
 
-void QuaternionCamera::ProcessMouseMouve(double x, double y, bool leftClick)
+void QuaternionCamera::ProcessMouseMouve(double x, double y)
 {
-    if (leftClick)
+    if (m_newLeftClic)
     {
-        m_Yaw += (x - m_LastMouseX) * m_MouseSensibility * 90.;
-        m_Pitch += (y - m_LastMouseY) * m_MouseSensibility * 90.;
+        m_LastMouseX = float(x);
+        m_LastMouseY = float(y);
+        m_newLeftClic = false;
+    }
 
-        if (m_Yaw >= 360)
-            m_Yaw -= 360;
-        if (m_Yaw <= -360)
-            m_Yaw += 360;
-        if (m_Pitch >= 360)
-            m_Pitch -= 360;
-        if (m_Pitch <= -360)
-            m_Pitch += 360;
+    if (m_leftClic)
+    {
+        m_Yaw += (float(x) - m_LastMouseX) * m_MouseSensibility * 90.f;
+        m_Pitch += (float(y) - m_LastMouseY) * m_MouseSensibility * 90.f;
+        m_LastMouseX = float(x);
+        m_LastMouseY = float(y);
+
+        if (m_Yaw >= 360.f)
+            m_Yaw -= 360.f;
+        if (m_Yaw <= -360.f)
+            m_Yaw += 360.f;
+        if (m_Pitch >= 360.f)
+            m_Pitch -= 360.f;
+        if (m_Pitch <= -360.f)
+            m_Pitch += 360.f;
 
 
-        glm::quat q = glm::angleAxis(glm::radians(m_Pitch), glm::vec3(1, 0, 0));
-        q *= glm::angleAxis(glm::radians(m_Yaw), glm::vec3(0, 1, 0));
+        glm::quat q = glm::angleAxis(glm::radians(m_Pitch), glm::vec3(1.f, 0.f, 0.f));
+        q *= glm::angleAxis(glm::radians(m_Yaw), glm::vec3(0.f, 1.f, 0.f));
 
         glm::mat3 rotMatrix = glm::mat3_cast(q);
 
@@ -275,7 +297,4 @@ void QuaternionCamera::ProcessMouseMouve(double x, double y, bool leftClick)
 
         UpdateViewMatrix();
     }
-
-    m_LastMouseX = x;
-    m_LastMouseY = y;
 }

@@ -5,6 +5,7 @@
 #include <limits>
 #include <algorithm>
 #include "VulkanBase.h"
+#include "VkGLM.h"
 
 struct Primitive
 {

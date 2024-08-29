@@ -17,43 +17,63 @@ static void cursorPosCallback(GLFWwindow* window, double xpos, double ypos)
 {
     Renderer* renderer = reinterpret_cast<Renderer*>(glfwGetWindowUserPointer(window));
 
-    int width, heigth;
-    glfwGetWindowSize(window, &width, &heigth);
+    if (!renderer->m_io->WantCaptureMouse)
+    {
+        int width, heigth;
+        glfwGetFramebufferSize(window, &width, &heigth);
 
-    bool leftClick = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT);
+        auto camera = renderer->GetCamera();
+        camera->ProcessMouseMouve(xpos / (double)width, ypos / (double)heigth);
+    }
 
-    auto camera = renderer->GetCamera();
-    camera->ProcessMouseMouve(xpos / (double)width, ypos / (double)heigth, leftClick);
+    ImGui_ImplGlfw_CursorPosCallback(window, xpos, ypos);
 }
 
 static void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
     Renderer* renderer = reinterpret_cast<Renderer*>(glfwGetWindowUserPointer(window));
 
-    std::map<int, KeyPress>* keyPressMap = renderer->GetKeyPressedMap();
+    if (!renderer->m_io->WantCaptureKeyboard)
+    {
+        std::map<int, KeyPress>* keyPressMap = renderer->GetKeyPressedMap();
 
-    (*keyPressMap)[key].current = action;
+        (*keyPressMap)[key].current = action;
+    }
+
+    ImGui_ImplGlfw_KeyCallback(window, key, scancode, action, mods);
 }
 
 static void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
 {
+    Renderer* renderer = reinterpret_cast<Renderer*>(glfwGetWindowUserPointer(window));
+
+    int width, heigth;
+    glfwGetFramebufferSize(window, &width, &heigth);
+
+    renderer->GetCamera()->ProcessMouseButton(button, action, mods);
+
     if (button == GLFW_MOUSE_BUTTON_LEFT)
     {
         if (action == GLFW_PRESS)
         {
             glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
         }
-        else
+        else if (action == GLFW_RELEASE)
         {
             glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
         }
     }
+
+    ImGui_ImplGlfw_MouseButtonCallback(window, button, action, mods);
 }
 
 static void scrollCallback(GLFWwindow* window, double xoffset, double yoffset)
 {
     Renderer* renderer = reinterpret_cast<Renderer*>(glfwGetWindowUserPointer(window));
+
     renderer->GetCamera()->ProcessScroll(xoffset, yoffset);
+
+    ImGui_ImplGlfw_ScrollCallback(window, xoffset, yoffset);
 }
 
 Renderer::Renderer(const std::string& ApplicationName, uint32_t ApplicationVersion, const std::string& EngineName, uint32_t EngineVersion, int width, int height)
@@ -89,7 +109,7 @@ Renderer::Renderer(const std::string& ApplicationName, uint32_t ApplicationVersi
     auto sawpChainImageView = m_SwapChain.GetImageViews();
     auto extent = m_SwapChain.GetExtent();
 
-    m_GBuffer.BuildGBuffer(sawpChainImageView.size(), extent.width, extent.height, m_RenderPass.getRenderPass(), sawpChainImageView, m_DepthImage.GetImageView(), m_Allocator, m_Device, { m_QueueFamilyIndices.transferFamily.value(), m_QueueFamilyIndices.graphicsFamily.value()});
+    m_GBuffer.BuildGBuffer(uint8_t(sawpChainImageView.size()), extent.width, extent.height, sawpChainImageView, m_Allocator, m_Device, { m_QueueFamilyIndices.transferFamily.value(), m_QueueFamilyIndices.graphicsFamily.value()});
 
     m_SwapChain.CreateFramebuffer(m_Device, m_RenderPass.getRenderPass(), m_GBuffer, m_DepthImage.GetImageView());
     
@@ -99,9 +119,10 @@ Renderer::Renderer(const std::string& ApplicationName, uint32_t ApplicationVersi
     {
         mesh->CreateVertexBuffers(m_Allocator, m_Device, m_TransferPool, m_TranferQueue, m_QueueFamilyIndices.transferFamily.value(), m_QueueFamilyIndices.graphicsFamily.value());
         mesh->CreateIndexBuffers(m_Allocator, m_Device, m_TransferPool, m_TranferQueue, m_QueueFamilyIndices.transferFamily.value(), m_QueueFamilyIndices.graphicsFamily.value());
-        mesh->SetModel(glm::translate(glm::mat4(1.f), glm::vec3(7., 2., 0.)));
+        mesh->SetModel(glm::translate(glm::mat4(1.f), glm::vec3(20., 0., 0.)));
         m_Meshes.push_back(mesh);
     }
+    meshes.clear();
 
     meshes = MeshLoader::loadGltf("./Models/GLTF/WaterBottle/glTF/WaterBottle.gltf", m_Materials);
 
@@ -109,10 +130,10 @@ Renderer::Renderer(const std::string& ApplicationName, uint32_t ApplicationVersi
     {
         mesh->CreateVertexBuffers(m_Allocator, m_Device, m_TransferPool, m_TranferQueue, m_QueueFamilyIndices.transferFamily.value(), m_QueueFamilyIndices.graphicsFamily.value());
         mesh->CreateIndexBuffers(m_Allocator, m_Device, m_TransferPool, m_TranferQueue, m_QueueFamilyIndices.transferFamily.value(), m_QueueFamilyIndices.graphicsFamily.value());
-        mesh->SetModel(glm::translate(glm::mat4(1.f), glm::vec3(-7., 1., 0.)));
+        mesh->SetModel(glm::scale(glm::translate(glm::mat4(1.f), glm::vec3(-7., 1., 0.)), glm::vec3(7.)));
         m_Meshes.push_back(mesh);
     }
-
+    meshes.clear();
     
     meshes = MeshLoader::loadGltf("./Models/GLTF/Sponza/glTF/Sponza.glb", m_Materials, false, true);
 
@@ -123,18 +144,30 @@ Renderer::Renderer(const std::string& ApplicationName, uint32_t ApplicationVersi
         mesh->SetModel(glm::translate(glm::mat4(1.f), glm::vec3(50., 0., 20.)));
         m_Meshes.push_back(mesh);
     }
+    meshes.clear();
     
-
     meshes = MeshLoader::loadGltf("./Models/GLTF/MetalRoughSpheres/MetalRoughSpheres.gltf", m_Materials);
 
     for (auto mesh : meshes)
     {
-        //mesh->AverageDuplicatedVertexNormals();
         mesh->CreateVertexBuffers(m_Allocator, m_Device, m_TransferPool, m_TranferQueue, m_QueueFamilyIndices.transferFamily.value(), m_QueueFamilyIndices.graphicsFamily.value());
         mesh->CreateIndexBuffers(m_Allocator, m_Device, m_TransferPool, m_TranferQueue, m_QueueFamilyIndices.transferFamily.value(), m_QueueFamilyIndices.graphicsFamily.value());
-         //glm::translate(glm::rotate(glm::mat4(1.0), glm::radians(-90.f), glm::vec3(1., 0., 0.)), glm::vec3(35., 0., 20.)));
+        mesh->SetModel(glm::translate(mesh->GetModel(), glm::vec3(10., 0., -3.)));
         m_Meshes.push_back(mesh);
     }
+    meshes.clear();
+
+    meshes = MeshLoader::loadGltf("./Models/GLTF/BoomBox_Axis/BoomBoxWithAxes.gltf", m_Materials);
+
+    for (auto mesh : meshes)
+    {
+        mesh->CreateVertexBuffers(m_Allocator, m_Device, m_TransferPool, m_TranferQueue, m_QueueFamilyIndices.transferFamily.value(), m_QueueFamilyIndices.graphicsFamily.value());
+        mesh->CreateIndexBuffers(m_Allocator, m_Device, m_TransferPool, m_TranferQueue, m_QueueFamilyIndices.transferFamily.value(), m_QueueFamilyIndices.graphicsFamily.value());
+        //glm::translate(glm::rotate(glm::mat4(1.0), glm::radians(-90.f), glm::vec3(1., 0., 0.)), glm::vec3(35., 0., 20.)));
+        mesh->SetModel(glm::scale(mesh->GetModel(), glm::vec3(100.)));
+        m_Meshes.push_back(mesh);
+    }
+    meshes.clear();
 
     CreateQuadMesh();
 
@@ -155,8 +188,52 @@ Renderer::Renderer(const std::string& ApplicationName, uint32_t ApplicationVersi
     CreateSyncObject();
 
     m_Camera = new QuaternionCamera(glm::vec3(0., 1., 5.), glm::vec3(0., 0., 0.), glm::vec3(0., 1., 0.), 77., extent.width / (double)extent.height, 0.5, 1000000.);
-    m_Camera->SetSpeed(30.);
+    m_Camera->SetSpeed(15.);
     m_Camera->SetMouseSensibility(5.);
+
+    // Setup Dear ImGui context
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    m_io = &ImGui::GetIO(); (void*)m_io;
+    m_io->ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+    m_io->ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+    m_io->ConfigFlags |= ImGuiConfigFlags_DockingEnable;         // Enable Docking
+    m_io->ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;       // Enable Multi-Viewport / Platform Windows
+
+    VkDescriptorPoolSize pool_sizes[] =
+    {
+        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1 },
+    };
+    VkDescriptorPoolCreateInfo pool_info = {};
+    pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+    pool_info.maxSets = 1;
+    pool_info.poolSizeCount = (uint32_t)IM_ARRAYSIZE(pool_sizes);
+    pool_info.pPoolSizes = pool_sizes;
+    vkCreateDescriptorPool(m_Device, &pool_info, NULL, &m_ImGuiDescriptorPool);
+
+    // Setup Dear ImGui style
+    ImGui::StyleColorsDark();
+    //ImGui::StyleColorsLight();
+
+    // Setup Platform/Renderer backends
+    ImGui_ImplGlfw_InitForVulkan(m_Window.getWindow(), false);
+    ImGui_ImplVulkan_InitInfo init_info = {};
+    init_info.Instance = m_Instance;
+    init_info.PhysicalDevice = m_PhysicalDevice;
+    init_info.Device = m_Device;
+    init_info.QueueFamily = m_QueueFamilyIndices.graphicsFamily.value();
+    init_info.Queue = m_GraphicsQueue;
+    init_info.PipelineCache = NULL;
+    init_info.DescriptorPool = m_ImGuiDescriptorPool;
+    init_info.RenderPass = m_RenderPass.getRenderPass();
+    init_info.Subpass = 1;
+    init_info.MinImageCount = m_SwapChain.GetImageViews().size();
+    init_info.ImageCount = m_SwapChain.GetImageViews().size();
+    init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+    init_info.Allocator = NULL;
+    init_info.CheckVkResultFn = NULL;
+    ImGui_ImplVulkan_Init(&init_info);
 }
 
 Renderer::~Renderer()
@@ -165,6 +242,13 @@ Renderer::~Renderer()
         delete m_Camera;
 
     vkQueueWaitIdle(m_GraphicsQueue);
+
+    ImGui_ImplVulkan_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
+
+    if (m_Device)
+        vkDestroyDescriptorPool(m_Device, m_ImGuiDescriptorPool, NULL);
 
     if (m_Device != VK_NULL_HANDLE)
     {
@@ -494,7 +578,7 @@ void Renderer::CreateDepthRessources()
 {
     VkFormat depthStencilFormat = Image::findDepthFormat(m_PhysicalDevice);
 
-    m_DepthImage.CreateImage(m_Allocator, m_Device, m_SwapChain.GetExtent().width, m_SwapChain.GetExtent().height,
+    m_DepthImage.CreateImage(m_Allocator, m_SwapChain.GetExtent().width, m_SwapChain.GetExtent().height,
         depthStencilFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, { m_QueueFamilyIndices.graphicsFamily.value() });
     m_DepthImage.CreateImageView(m_Device, depthStencilFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
 }
@@ -545,6 +629,17 @@ void Renderer::CreateRenderPass()
     pbrAttachmentDescription.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     pbrAttachmentDescription.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
+    VkAttachmentDescription emissiveAttachmentDescription;
+    emissiveAttachmentDescription.flags = 0;
+    emissiveAttachmentDescription.format = VK_FORMAT_R8G8B8A8_UNORM;
+    emissiveAttachmentDescription.samples = VK_SAMPLE_COUNT_1_BIT;
+    emissiveAttachmentDescription.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    emissiveAttachmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    emissiveAttachmentDescription.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    emissiveAttachmentDescription.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    emissiveAttachmentDescription.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    emissiveAttachmentDescription.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
     VkAttachmentDescription depthAttachmentDescription;
     depthAttachmentDescription.flags = 0;
     depthAttachmentDescription.format = Image::findDepthFormat(m_PhysicalDevice);
@@ -572,8 +667,12 @@ void Renderer::CreateRenderPass()
     pbrGBufferReference.attachment = 3;
     pbrGBufferReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
+    VkAttachmentReference emissiveGBufferReference{};
+    emissiveGBufferReference.attachment = 4;
+    emissiveGBufferReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
     VkAttachmentReference depthAttachmentRef{};
-    depthAttachmentRef.attachment = 4;
+    depthAttachmentRef.attachment = 5;
     depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
     VkAttachmentDescription attachmentDescription;
@@ -588,10 +687,10 @@ void Renderer::CreateRenderPass()
     attachmentDescription.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
     VkAttachmentReference attachmentReference;
-    attachmentReference.attachment = 5;
+    attachmentReference.attachment = 6;
     attachmentReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
-    m_RenderPass.addSubPass(VK_PIPELINE_BIND_POINT_GRAPHICS, {}, { posGBufferReference, normalGBufferReference, colorGBufferReference, pbrGBufferReference }, {}, { depthAttachmentRef }, { } );
+    m_RenderPass.addSubPass(VK_PIPELINE_BIND_POINT_GRAPHICS, {}, { posGBufferReference, normalGBufferReference, colorGBufferReference, pbrGBufferReference, emissiveGBufferReference }, {}, { depthAttachmentRef }, { } );
 
     m_RenderPass.addSubPassDependency(VK_SUBPASS_EXTERNAL, 0, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, 0);
 
@@ -611,13 +710,17 @@ void Renderer::CreateRenderPass()
     inPbrGBufferReference.attachment = 3;
     inPbrGBufferReference.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-    m_RenderPass.addSubPass(VK_PIPELINE_BIND_POINT_GRAPHICS, { inPosGBufferReference, inNormalGBufferReference, inColorGBufferReference, inPbrGBufferReference }, { attachmentReference }, {}, {}, {});
+    VkAttachmentReference inEmissiveGBufferReference{};
+    inEmissiveGBufferReference.attachment = 4;
+    inEmissiveGBufferReference.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+    m_RenderPass.addSubPass(VK_PIPELINE_BIND_POINT_GRAPHICS, { inPosGBufferReference, inNormalGBufferReference, inColorGBufferReference, inPbrGBufferReference, inEmissiveGBufferReference }, { attachmentReference }, {}, {}, {});
 
     m_RenderPass.addSubPassDependency(0, 1, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT, VK_DEPENDENCY_BY_REGION_BIT);
 
     m_RenderPass.addSubPassDependency(1, VK_SUBPASS_EXTERNAL, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_MEMORY_READ_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_DEPENDENCY_BY_REGION_BIT);
 
-    m_RenderPass.CreateRenderPass(m_Device, { posAttachmentDescription, normalAttachmentDescription, colorAttachmentDescription, pbrAttachmentDescription, depthAttachmentDescription, attachmentDescription });
+    m_RenderPass.CreateRenderPass(m_Device, { posAttachmentDescription, normalAttachmentDescription, colorAttachmentDescription, pbrAttachmentDescription, emissiveAttachmentDescription, depthAttachmentDescription, attachmentDescription });
 }
 
 void Renderer::CreatePerMeshDescriptor()
@@ -644,7 +747,7 @@ void Renderer::CreatePerMeshDescriptor()
 
         for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
         {
-            m_PerMeshDescriptor.AddUniformBuffer(m_Allocator, m_Device, m_Meshes.size() * paddedSize);
+            m_PerMeshDescriptor.AddUniformBuffer(m_Allocator, m_Meshes.size() * paddedSize);
         }
 
         VkDescriptorPoolSize descriptorPoolSize{};
@@ -691,7 +794,7 @@ void Renderer::CreatePerMeshDescriptor()
 void Renderer::CreateGBufferDescriptor()
 {
     std::vector<VkDescriptorSetLayoutBinding> attachmentLayoutBinding;
-    attachmentLayoutBinding.resize(4);
+    attachmentLayoutBinding.resize(5);
 
     attachmentLayoutBinding[0].binding = 0;
     attachmentLayoutBinding[0].descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
@@ -717,6 +820,12 @@ void Renderer::CreateGBufferDescriptor()
     attachmentLayoutBinding[3].pImmutableSamplers = NULL;
     attachmentLayoutBinding[3].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
+    attachmentLayoutBinding[4].binding = 4;
+    attachmentLayoutBinding[4].descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
+    attachmentLayoutBinding[4].descriptorCount = 1;
+    attachmentLayoutBinding[4].pImmutableSamplers = NULL;
+    attachmentLayoutBinding[4].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
     auto GBufferImages = m_GBuffer.GetGBufferImages();
 
     m_GBufferDescriptor.CreateDescriptorSetLayout(m_Device, attachmentLayoutBinding, 0);
@@ -725,7 +834,7 @@ void Renderer::CreateGBufferDescriptor()
     poolSize.type = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
     poolSize.descriptorCount = static_cast<uint32_t>(GBufferImages.size());
 
-    m_GBufferDescriptor.CreateDescriptorPool(m_Device, { poolSize }, GBufferImages.size());
+    m_GBufferDescriptor.CreateDescriptorPool(m_Device, { poolSize }, uint32_t(GBufferImages.size()));
     
     std::vector<VkDescriptorSetLayout> layouts; 
     layouts.assign(GBufferImages.size(), m_GBufferDescriptor.GetDescriptorSetLayout());
@@ -762,7 +871,12 @@ void Renderer::UpdateGBufferDescriptor()
         pbrDescriptor.imageView = GBufferImages[i].pbrImageBuffer.GetImageView();
         pbrDescriptor.sampler = VK_NULL_HANDLE;
 
-        std::array<VkWriteDescriptorSet, 4> descriptorWrites{};
+        VkDescriptorImageInfo emissiveDescriptor{};
+        emissiveDescriptor.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        emissiveDescriptor.imageView = GBufferImages[i].emissiveImageBuffer.GetImageView();
+        emissiveDescriptor.sampler = VK_NULL_HANDLE;
+
+        std::array<VkWriteDescriptorSet, 5> descriptorWrites{};
         descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         descriptorWrites[0].dstSet = descriptorSets[i];
         descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
@@ -795,6 +909,14 @@ void Renderer::UpdateGBufferDescriptor()
         descriptorWrites[3].dstArrayElement = 0;
         descriptorWrites[3].pImageInfo = &pbrDescriptor;
 
+        descriptorWrites[4].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[4].dstSet = descriptorSets[i];
+        descriptorWrites[4].descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
+        descriptorWrites[4].descriptorCount = 1;
+        descriptorWrites[4].dstBinding = 4;
+        descriptorWrites[4].dstArrayElement = 0;
+        descriptorWrites[4].pImageInfo = &emissiveDescriptor;
+
         vkUpdateDescriptorSets(m_Device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
     }
 }
@@ -812,7 +934,7 @@ void Renderer::CreatePerPassDescriptor()
 
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        m_PerPassDescriptor.AddUniformBuffer(m_Allocator, m_Device, sizeof(m_CameraUniform));
+        m_PerPassDescriptor.AddUniformBuffer(m_Allocator, sizeof(m_CameraUniform));
     }
 
     VkDescriptorPoolSize descriptorPoolSize{};
@@ -1002,7 +1124,8 @@ void Renderer::CreateGraphicPipeline()
     pPipelineColorBlendAttachmentState.alphaBlendOp = VK_BLEND_OP_ADD;
     pPipelineColorBlendAttachmentState.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
 
-    std::array<VkPipelineColorBlendAttachmentState, 4> pPipelineColorBlendAttachmentStates = { pPipelineColorBlendAttachmentState,
+    std::array<VkPipelineColorBlendAttachmentState, 5> pPipelineColorBlendAttachmentStates = { pPipelineColorBlendAttachmentState,
+                                                                                               pPipelineColorBlendAttachmentState,
                                                                                                pPipelineColorBlendAttachmentState,
                                                                                                pPipelineColorBlendAttachmentState,
                                                                                                pPipelineColorBlendAttachmentState };
@@ -1012,7 +1135,7 @@ void Renderer::CreateGraphicPipeline()
     pipelineColorBlendStateCreateInfo.flags = 0;
     pipelineColorBlendStateCreateInfo.logicOpEnable = VK_FALSE;
     pipelineColorBlendStateCreateInfo.logicOp = VK_LOGIC_OP_COPY;
-    pipelineColorBlendStateCreateInfo.attachmentCount = pPipelineColorBlendAttachmentStates.size();
+    pipelineColorBlendStateCreateInfo.attachmentCount = uint32_t(pPipelineColorBlendAttachmentStates.size());
     pipelineColorBlendStateCreateInfo.pAttachments = pPipelineColorBlendAttachmentStates.data();
     pipelineColorBlendStateCreateInfo.blendConstants[0] = 0.0f;
     pipelineColorBlendStateCreateInfo.blendConstants[1] = 0.0f;
@@ -1169,7 +1292,7 @@ void Renderer::CreateCommandBuffers()
        std::cout << "Command buffer creation failed !" << std::endl;
 }
 
-void Renderer::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex, uint32_t currentFrame)
+void Renderer::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex, uint32_t currentFrame, ImDrawData* draw_data)
 {
     VkFramebuffer framebuffers = m_SwapChain.GetFramebuffers()[imageIndex];
     auto GBufferDescriptorSet = m_GBufferDescriptor.GetDescriptorSets()[imageIndex];
@@ -1188,13 +1311,14 @@ void Renderer::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t image
     if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS)
         std::cout << "Failed to begin commandBuffer !" << std::endl;
 
-    std::array<VkClearValue, 6> clearValues{};
-    clearValues[0].color = { {0.1f, 0.25f, 0.6f, 1.0f} };
-    clearValues[1].color = { {0.1f, 0.25f, 0.6f, 1.0f} };
-    clearValues[2].color = { {0.1f, 0.25f, 0.6f, 1.0f} };
-    clearValues[3].color = { {0.1f, 0.25f, 0.6f, 1.0f} };
-    clearValues[4].depthStencil = { 1.0f, 0 };
-    clearValues[5].color = { {0.1f, 0.25f, 0.6f, 1.0f} };
+    std::array<VkClearValue, 7> clearValues{};
+    clearValues[0].color = clearColor;
+    clearValues[1].color = clearColor;
+    clearValues[2].color = clearColor;
+    clearValues[3].color = clearColor;
+    clearValues[4].color = clearColor;
+    clearValues[5].depthStencil = { 1.0f, 0 };
+    clearValues[6].color = clearColor;
 
     VkRenderPassBeginInfo renderPassInfo{};
     renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -1207,10 +1331,10 @@ void Renderer::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t image
 
     vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-    if (m_drawFill)
-        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_GraphicPipelineFirstPass);
-    else
+    if (m_Wireframe)
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_GraphicPipelineFirstPassLineMode);
+    else
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_GraphicPipelineFirstPass);
 
     auto extent = m_SwapChain.GetExtent();
 
@@ -1264,6 +1388,8 @@ void Renderer::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t image
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_GraphicPipelineSecondPassLayout, 1, 1, &GBufferDescriptorSet, 0, NULL);
     m_simpleQuadMesh.BindVertexBuffer(commandBuffer);
     vkCmdDraw(commandBuffer, 6, 1, 0, 0);
+
+    ImGui_ImplVulkan_RenderDrawData(draw_data, commandBuffer);
 
     vkCmdEndRenderPass(commandBuffer);
 
@@ -1327,7 +1453,7 @@ void Renderer::Draw()
         CreateDepthRessources();
         auto extent = m_SwapChain.GetExtent();
         auto swapChainImageView = m_SwapChain.GetImageViews();
-        m_GBuffer.ReBuildGBuffer(swapChainImageView.size(), extent.width, extent.height, m_RenderPass.getRenderPass(), swapChainImageView, m_DepthImage.GetImageView(), m_Allocator, m_Device, {m_QueueFamilyIndices.graphicsFamily.value()});
+        m_GBuffer.ReBuildGBuffer(uint8_t(swapChainImageView.size()), extent.width, extent.height, swapChainImageView, m_Allocator, m_Device, {m_QueueFamilyIndices.graphicsFamily.value()});
         m_SwapChain.CreateFramebuffer(m_Device, m_RenderPass.getRenderPass(), m_GBuffer ,m_DepthImage.GetImageView());
         UpdateGBufferDescriptor();
         CreateCommandBuffers();
@@ -1360,7 +1486,31 @@ void Renderer::Draw()
     UpdateUniform();
 
     vkResetCommandBuffer(m_CommandBuffers[m_CurrentFrame], 0);
-    RecordCommandBuffer(m_CommandBuffers[m_CurrentFrame], imageIndex, m_CurrentFrame);
+
+    ImGui_ImplVulkan_NewFrame();
+    ImGui_ImplGlfw_NewFrame();
+    ImGui::NewFrame();
+
+    {
+        ImGui::Begin("Tools");
+
+        ImGui::Checkbox("Wireframe", &m_Wireframe);
+
+        ImGui::SliderFloat("CameraSpeed", m_Camera->GetSpeed(), 0., 100.);
+
+        ImGui::End();
+    }
+
+    ImGui::Render();
+    ImDrawData* main_draw_data = ImGui::GetDrawData();
+
+    RecordCommandBuffer(m_CommandBuffers[m_CurrentFrame], imageIndex, m_CurrentFrame, main_draw_data);
+
+    if (m_io->ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+    {
+        ImGui::UpdatePlatformWindows();
+        ImGui::RenderPlatformWindowsDefault();
+    }
 
     vkQueueSubmit(m_GraphicsQueue, 1, &submitsInfo, m_InFlightFences[m_CurrentFrame]);
 
@@ -1386,7 +1536,7 @@ void Renderer::Draw()
         CreateDepthRessources();
         auto extent = m_SwapChain.GetExtent();
         auto swapChainImageView = m_SwapChain.GetImageViews();
-        m_GBuffer.ReBuildGBuffer(swapChainImageView.size(), extent.width, extent.height, m_RenderPass.getRenderPass(), swapChainImageView, m_DepthImage.GetImageView(), m_Allocator, m_Device, { m_QueueFamilyIndices.graphicsFamily.value() });
+        m_GBuffer.ReBuildGBuffer(uint8_t(swapChainImageView.size()), extent.width, extent.height, swapChainImageView, m_Allocator, m_Device, { m_QueueFamilyIndices.graphicsFamily.value() });
         m_SwapChain.CreateFramebuffer(m_Device, m_RenderPass.getRenderPass(), m_GBuffer, m_DepthImage.GetImageView());
         UpdateGBufferDescriptor();
         CreateCommandBuffers();
@@ -1410,7 +1560,6 @@ void Renderer::UpdateUniform()
 
     memcpy(uniformAllocInfo.pMappedData, &m_CameraUniform, sizeof(m_CameraUniform));
 
-    
     if (!m_Meshes.empty())
     {
 
@@ -1430,14 +1579,13 @@ void Renderer::UpdateUniform()
         for (int i = 0; i < m_Meshes.size(); i++)
         {
             char* p = modelsData + i * paddedSize;
-            memcpy(p, &m_Meshes[i]->GetModel(), sizeof(glm::mat4));
+            memcpy(p, &(m_Meshes[i]->GetModel()), bufferSize);
         }
 
         memcpy(uniformAllocInfo.pMappedData, modelsData, m_Meshes.size() * paddedSize);
 
         free(modelsData);
-    }
-    
+    }  
 }
 
 Camera* Renderer::GetCamera()
@@ -1477,8 +1625,6 @@ void Renderer::ProcessKeyInput()
         m_Camera->Move(UP, fDeltaTime);
     if (m_KeyPressedMap[GLFW_KEY_ESCAPE].current)
         glfwSetWindowShouldClose(m_Window.getWindow(), true);
-    if (m_KeyPressedMap[GLFW_KEY_Z].previous == GLFW_RELEASE && m_KeyPressedMap[GLFW_KEY_Z].current == GLFW_PRESS)
-        m_drawFill = !m_drawFill;
 
     for (int i = 32; i < 349; i++)
         m_KeyPressedMap[i].previous = m_KeyPressedMap[i].current;

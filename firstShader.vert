@@ -23,6 +23,7 @@ layout (set=1, binding=0) uniform Camera
     mat4 view;
     mat4 projection;
     vec3 camPosition;
+    float padding;
 };
 
 void main() {

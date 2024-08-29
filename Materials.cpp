@@ -1,21 +1,7 @@
 #include "Materials.h"
 
-size_t Materials::AddMeterial(glm::vec3 baseColor, float metallic, float roughness, std::string baseColorTexturePath, std::string metallicRoughnessTexturePath, std::string normalTexturePath)
+size_t Materials::AddMaterial(Material material)
 {
-	Material material;
-	material.materialUniformBuffer.baseColor = baseColor;
-	material.materialUniformBuffer.metallic = metallic;
-	material.materialUniformBuffer.roughness = roughness;
-	material.baseColorTexturePath = baseColorTexturePath;
-	material.metallicRoughnessTexturePath = metallicRoughnessTexturePath;
-	material.normalTexturePath = normalTexturePath;
-	material.baseColorTexture = nullptr;
-	material.metallicRoughnessTexture = nullptr;
-	material.normalTexture = nullptr;
-	material.materialUniformBuffer.useBaseColorTexture = false;
-	material.materialUniformBuffer.useMetallicRoughnessTexture = false;
-	material.materialUniformBuffer.useNormalTexture = false;
-
 	m_Materials.push_back(material);
 
 	return m_Materials.size() - 1;
@@ -27,27 +13,39 @@ void Materials::CreateTexures(VmaAllocator allocator, VkDevice device, VkCommand
 	{
 		if (material.baseColorTexturePath != "" && material.baseColorTexture == nullptr)
 		{
-			material.baseColorTexture = new TextureImage(material.baseColorTexturePath, VK_FORMAT_R8G8B8A8_SRGB, allocator, device, transferPool, transferQueue, graphicPool, graphicQueue, transferFamilyIndice, graphicFamilyIndice);
+			material.baseColorTexture = new TextureImage(material.baseColorTexturePath, VK_FORMAT_R8G8B8A8_SRGB, allocator, device, transferPool, transferQueue, graphicPool, graphicQueue, transferFamilyIndice, graphicFamilyIndice, true);
 			material.baseColorTexture->CreateTextureSampler(device);
 			material.materialUniformBuffer.useBaseColorTexture = true;
 		}
 		if (material.metallicRoughnessTexturePath != "" && material.metallicRoughnessTexture == nullptr)
 		{
-			material.metallicRoughnessTexture = new TextureImage(material.metallicRoughnessTexturePath, VK_FORMAT_R8G8B8A8_UNORM, allocator, device, transferPool, transferQueue, graphicPool, graphicQueue, transferFamilyIndice, graphicFamilyIndice);
+			material.metallicRoughnessTexture = new TextureImage(material.metallicRoughnessTexturePath, VK_FORMAT_R8G8B8A8_UNORM, allocator, device, transferPool, transferQueue, graphicPool, graphicQueue, transferFamilyIndice, graphicFamilyIndice, true);
 			material.metallicRoughnessTexture->CreateTextureSampler(device);
 			material.materialUniformBuffer.useMetallicRoughnessTexture = true;
 		}
 		if (material.normalTexturePath != "" && material.normalTexture == nullptr)
 		{
-			material.normalTexture = new TextureImage(material.normalTexturePath, VK_FORMAT_R8G8B8A8_UNORM, allocator, device, transferPool, transferQueue, graphicPool, graphicQueue, transferFamilyIndice, graphicFamilyIndice);
+			material.normalTexture = new TextureImage(material.normalTexturePath, VK_FORMAT_R8G8B8A8_UNORM, allocator, device, transferPool, transferQueue, graphicPool, graphicQueue, transferFamilyIndice, graphicFamilyIndice, true);
 			material.normalTexture->CreateTextureSampler(device);
 			material.materialUniformBuffer.useNormalTexture = true;
+		}
+		if (material.emissiveTexturePath != "" && material.emissiveTexture == nullptr)
+		{
+			material.emissiveTexture = new TextureImage(material.emissiveTexturePath, VK_FORMAT_R8G8B8A8_SRGB, allocator, device, transferPool, transferQueue, graphicPool, graphicQueue, transferFamilyIndice, graphicFamilyIndice, true);
+			material.emissiveTexture->CreateTextureSampler(device);
+			material.materialUniformBuffer.useEmissiveTexture = true;
+		}
+		if (material.AOTexturePath != "" && material.AOTexture == nullptr)
+		{
+			material.AOTexture = new TextureImage(material.AOTexturePath, VK_FORMAT_R8G8B8A8_SRGB, allocator, device, transferPool, transferQueue, graphicPool, graphicQueue, transferFamilyIndice, graphicFamilyIndice, true);
+			material.AOTexture->CreateTextureSampler(device);
+			material.materialUniformBuffer.useAOTexture = true;
 		}
 	}
 
 	unsigned char* pixels = (unsigned char*) malloc(sizeof(unsigned char) * 64);
 
-	m_defaultTexture = new TextureImage(pixels, 4, 4, VK_FORMAT_R8G8B8A8_SRGB, allocator, device, transferPool, transferQueue, graphicPool, graphicQueue, transferFamilyIndice, graphicFamilyIndice);
+	m_defaultTexture = new TextureImage(pixels, 4, 4, VK_FORMAT_R8G8B8A8_SRGB, allocator, device, transferPool, transferQueue, graphicPool, graphicQueue, transferFamilyIndice, graphicFamilyIndice, true);
 	m_defaultTexture->CreateTextureSampler(device);
 
 	free(pixels);
@@ -64,7 +62,7 @@ void Materials::CreatePerMaterialDescriptor(VmaAllocator allocator, VkDevice dev
 
 	VkDescriptorSetLayoutBinding samplerLayoutBinding{};
 	samplerLayoutBinding.binding = 1;
-	samplerLayoutBinding.descriptorCount = 3;
+	samplerLayoutBinding.descriptorCount = 5;
 	samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 	samplerLayoutBinding.pImmutableSamplers = NULL;
 	samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
@@ -74,9 +72,9 @@ void Materials::CreatePerMaterialDescriptor(VmaAllocator allocator, VkDevice dev
 	auto layout = m_PerMaterialDescriptor.GetDescriptorSetLayout();
 	std::vector<VkDescriptorSetLayout> layouts;
 
-	for (auto& material : m_Materials)
+	for (size_t i = 0; i < m_Materials.size(); i++)
 	{
-		m_PerMaterialDescriptor.AddUniformBuffer(allocator, device, sizeof(MaterialUniformBuffer));
+		m_PerMaterialDescriptor.AddUniformBuffer(allocator, sizeof(MaterialUniformBuffer));
 		layouts.push_back(layout);
 	}
 
@@ -91,7 +89,7 @@ void Materials::CreatePerMaterialDescriptor(VmaAllocator allocator, VkDevice dev
 	poolSize.descriptorCount = static_cast<uint32_t>(m_Materials.size());
 	poolSizes.push_back(poolSize);
 
-	m_PerMaterialDescriptor.CreateDescriptorPool(device, poolSizes, m_Materials.size());
+	m_PerMaterialDescriptor.CreateDescriptorPool(device, poolSizes, uint32_t(m_Materials.size()));
 
 	m_PerMaterialDescriptor.AllocateDescriptorSet(device, layouts);
 
@@ -101,7 +99,7 @@ void Materials::CreatePerMaterialDescriptor(VmaAllocator allocator, VkDevice dev
 
 	for (int i = 0; i < m_Materials.size(); i++)
 	{
-		std::array<VkWriteDescriptorSet, 4> descriptorWrites{};
+		std::array<VkWriteDescriptorSet, 6> descriptorWrites{};
 
 		VkDescriptorBufferInfo bufferInfo{};
 		bufferInfo.buffer = uniformBuffers[i];
@@ -155,6 +153,32 @@ void Materials::CreatePerMaterialDescriptor(VmaAllocator allocator, VkDevice dev
 		descriptorWrites[3].descriptorCount = 1;
 		descriptorWrites[3].pImageInfo = &imageNormalInfo;
 
+		VkDescriptorImageInfo imageEmissiveInfo{};
+		imageEmissiveInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		imageEmissiveInfo.imageView = m_Materials[i].materialUniformBuffer.useEmissiveTexture ? m_Materials[i].emissiveTexture->GetImageView() : m_defaultTexture->GetImageView();
+		imageEmissiveInfo.sampler = m_Materials[i].materialUniformBuffer.useEmissiveTexture ? m_Materials[i].emissiveTexture->GetTextureSampler() : m_defaultTexture->GetTextureSampler();
+
+		descriptorWrites[4].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		descriptorWrites[4].dstSet = descriptorSets[i];
+		descriptorWrites[4].dstBinding = 1;
+		descriptorWrites[4].dstArrayElement = 3;
+		descriptorWrites[4].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		descriptorWrites[4].descriptorCount = 1;
+		descriptorWrites[4].pImageInfo = &imageEmissiveInfo;
+
+		VkDescriptorImageInfo imageAOInfo{};
+		imageAOInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		imageAOInfo.imageView = m_Materials[i].materialUniformBuffer.useAOTexture ? m_Materials[i].AOTexture->GetImageView() : m_defaultTexture->GetImageView();
+		imageAOInfo.sampler = m_Materials[i].materialUniformBuffer.useAOTexture ? m_Materials[i].AOTexture->GetTextureSampler() : m_defaultTexture->GetTextureSampler();
+
+		descriptorWrites[5].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		descriptorWrites[5].dstSet = descriptorSets[i];
+		descriptorWrites[5].dstBinding = 1;
+		descriptorWrites[5].dstArrayElement = 4;
+		descriptorWrites[5].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		descriptorWrites[5].descriptorCount = 1;
+		descriptorWrites[5].pImageInfo = &imageAOInfo;
+
 		vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
 
 		memcpy(uniformAllocInfo[i].pMappedData, &(m_Materials[i].materialUniformBuffer), sizeof(MaterialUniformBuffer));
@@ -193,6 +217,16 @@ void Materials::Cleanup(VmaAllocator allocator, VkDevice device)
 		{
 			material.normalTexture->Cleanup(allocator, device);
 			delete material.normalTexture;
+		}
+		if (material.emissiveTexture)
+		{
+			material.emissiveTexture->Cleanup(allocator, device);
+			delete material.emissiveTexture;
+		}
+		if (material.AOTexture)
+		{
+			material.AOTexture->Cleanup(allocator, device);
+			delete material.AOTexture;
 		}
 	}
 

@@ -20,6 +20,8 @@
 #include <chrono>
 #include <map>
 
+const VkClearColorValue clearColor = { { 0.13, 0.18, 0.25, 1. } };
+
 const std::string validationLayers = "VK_LAYER_KHRONOS_validation";
 
 const std::vector<std::string> wantedLayers = { "VK_LAYER_LUNARG_monitor" };
@@ -38,9 +40,10 @@ const std::vector<const char*> deviceExtensions = {
 
 typedef struct s_CameraUniform
 {
-	glm::mat4 view;
-	glm::mat4 projection;
-	glm::vec3 position;
+	glm::mat4 view;          
+	glm::mat4 projection;    
+	glm::vec3 position;      
+	float padding;           
 } CameraUniform;
 
 typedef struct s_KeyPress
@@ -90,7 +93,7 @@ public:
 
 	void CreateCommandBuffers();
 
-	void RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex, uint32_t currentFrame);
+	void RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex, uint32_t currentFrame, ImDrawData* draw_data);
 
 	void CleanupCommandBuffers();
 
@@ -111,6 +114,8 @@ public:
 	std::map<int, KeyPress>* GetKeyPressedMap();
 
 	void ProcessKeyInput();
+
+	ImGuiIO* m_io;
 
 private:
 	bool checkDeviceExtensionSupport(VkPhysicalDevice device);
@@ -161,6 +166,8 @@ private:
 	std::chrono::steady_clock::time_point m_LastTime = std::chrono::high_resolution_clock::now();
 	double m_DeltaTime = 0;
 
-	bool m_drawFill = true;
+	bool m_Wireframe = false;
+
+	VkDescriptorPool m_ImGuiDescriptorPool = VK_NULL_HANDLE;
 };
 

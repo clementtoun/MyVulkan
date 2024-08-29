@@ -1,10 +1,10 @@
 #pragma once
 
 #include "VkGLM.h"
-#include <glm/trigonometric.hpp>
 #include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/quaternion.hpp>
 #include <glm/gtc/matrix_access.hpp>
+#include <glm/trigonometric.hpp>
+#include <glm/gtc/quaternion.hpp>
 #include <iostream>
 
 enum Direction
@@ -23,9 +23,12 @@ public:
 	Camera();
 	Camera(glm::vec3 position, glm::vec3 target, glm::vec3 up, double fov, double aspect, double near, double far);
 
+	virtual ~Camera();
+
 	virtual void Move(Direction direction, float deltaTime) = 0;
-	virtual void ProcessMouseMouve(double x, double y, bool leftClick) = 0;
+	virtual void ProcessMouseMouve(double x, double y) = 0;
 	virtual void ProcessScroll(double xoffset, double yoffset) = 0;
+	virtual void ProcessMouseButton(int button, int action, int mods);
 
 	void SetMouseSensibility(float mouseSensibility);
 	void SetSpeed(float speed);
@@ -34,6 +37,8 @@ public:
 	const glm::mat4& GetView();
 	const glm::mat4& GetProjection();
 	const glm::vec3& GetPosition();
+
+	float* GetSpeed();
 
 protected:
 	void UpdateViewMatrix();
@@ -44,6 +49,11 @@ protected:
 	glm::vec3 m_Left;
 	glm::vec3 m_Up;
 	const glm::vec3 m_WorldUp = glm::vec3(0., 1., 0.);
+
+	int m_leftClic = false;
+	bool m_newLeftClic = true;
+	float m_LastMouseX = 0;
+	float m_LastMouseY = 0;
 
 	float m_MouseSensibility;
 	float m_Speed;
@@ -64,13 +74,11 @@ public:
 	EulerCamera(glm::vec3 position, glm::vec3 target, glm::vec3 up, double fov, double aspect, double near, double far);
 
 	void Move(Direction direction, float deltaTime) override;
-	void ProcessMouseMouve(double x, double y, bool leftClick) override;
+	void ProcessMouseMouve(double x, double y) override;
 	void ProcessScroll(double xoffset, double yoffset) override {};
 
 private:
 
-	float m_LastMouseX = 0;
-	float m_LastMouseY = 0;
 	float m_Yaw = 0;
 	float m_Pitch = 0;
 };
@@ -82,13 +90,11 @@ public:
 	TrackBallCamera(glm::vec3 position, glm::vec3 target, glm::vec3 up, double fov, double aspect, double near, double far);
 
 	void Move(Direction direction, float deltaTime) override {};
-	void ProcessMouseMouve(double x, double y, bool leftClick) override;
+	void ProcessMouseMouve(double x, double y) override;
 	void ProcessScroll(double xoffset, double yoffset) override;
 
 private:
 
-	float m_LastMouseX = 0;
-	float m_LastMouseY = 0;
 	float m_Yaw = 0;
 	float m_Pitch = 0;
 };
@@ -100,13 +106,11 @@ public:
 	QuaternionCamera(glm::vec3 position, glm::vec3 target, glm::vec3 up, double fov, double aspect, double near, double far);
 
 	void Move(Direction direction, float deltaTime) override;
-	void ProcessMouseMouve(double x, double y, bool leftClick) override;
+	void ProcessMouseMouve(double x, double y) override;
 	void ProcessScroll(double xoffset, double yoffset) override {};
 
 private:
 
-	float m_LastMouseX = 0;
-	float m_LastMouseY = 0;
 	float m_Yaw = 0;
 	float m_Pitch = 0;
 };

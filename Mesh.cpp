@@ -96,7 +96,7 @@ void Mesh::CreateVertexBuffers(VmaAllocator allocator, VkDevice device, VkComman
 	VmaAllocation stagingAlloc = {};
 	vmaCreateBuffer(allocator, &stagingBufferInfo, &stagingAllocInfo, &stagingBuf, &stagingAlloc, NULL);
 
-	void* data;
+	void* data = nullptr;
 	vmaMapMemory(allocator, stagingAlloc, &data);
 	memcpy(data, m_Vertexs.data(), (size_t)vertexBufferSize);
 	vmaUnmapMemory(allocator, stagingAlloc);
@@ -145,7 +145,7 @@ void Mesh::CreateIndexBuffers(VmaAllocator allocator, VkDevice device, VkCommand
 
 	vmaCreateBuffer(allocator, &stagingBufferInfo, &stagingAllocInfo, &stagingBuf, &stagingAlloc, NULL);
 
-	void* data;
+	void* data = nullptr;
 	vmaMapMemory(allocator, stagingAlloc, &data);
 	memcpy(data, m_Indexes.data(), (size_t)indexBufferSize);
 	vmaUnmapMemory(allocator, stagingAlloc);
@@ -350,63 +350,17 @@ void Mesh::AverageDuplicatedVertexNormals()
 			duplicatedIndexes.push_back(currentDuplicatedIndexes);
 	}
 
-	for (size_t primitiveIndex = 0; primitiveIndex < m_Primitves.size(); primitiveIndex++)
+	for (auto& duplicatedIndexesGroup : duplicatedIndexes)
 	{
-		Primitive& p = m_Primitves[primitiveIndex];
+		glm::vec3 normalAcc = glm::vec3(0.);
 
-		uint32_t lastPrimitiveVertexIdx = p.vertexOffset + p.vertexCount;
+		for (auto duplicatedIndexe : duplicatedIndexesGroup)
+			normalAcc += m_Vertexs[duplicatedIndexe].normal;
 
-		for (uint32_t i = p.vertexOffset; i < lastPrimitiveVertexIdx; i++)
-			m_Vertexs[i].normal = glm::vec3(0.);
+		normalAcc = glm::normalize(normalAcc);
 
-		for (uint32_t i = p.firstIndex; i < p.firstIndex + p.indexCount; i += 3)
-		{
-			uint32_t idx0 = m_Indexes[i] + p.vertexOffset;
-			uint32_t idx1 = m_Indexes[i + 1] + p.vertexOffset;
-			uint32_t idx2 = m_Indexes[i + 2] + p.vertexOffset;
-
-			glm::vec3 normal = glm::normalize(glm::cross(m_Vertexs[idx1].pos - m_Vertexs[idx0].pos, m_Vertexs[idx2].pos - m_Vertexs[idx0].pos));
-
-			int duplicated_face_group_idx = -1;
-
-			for (size_t dGi = 0; dGi < duplicatedIndexes.size() && duplicated_face_group_idx == -1; dGi++)
-			{
-				for (auto vertexIndex : duplicatedIndexes[dGi])
-				{
-					if (idx0 == vertexIndex || idx1 == vertexIndex || idx2 == vertexIndex)
-					{
-						duplicated_face_group_idx = dGi;
-						break;
-					}
-				}
-			}
-
-			if (duplicated_face_group_idx != -1)
-			{
-				for (auto vertexIndex : duplicatedIndexes[duplicated_face_group_idx])
-				{
-					if (idx0 != vertexIndex && idx1 != vertexIndex && idx2 != vertexIndex)
-					{
-						m_Vertexs[vertexIndex].normal += normal;
-					}
-
-				}
-			}
-			
-			m_Vertexs[idx0].normal += normal;
-			m_Vertexs[idx1].normal += normal;
-			m_Vertexs[idx2].normal += normal;
-		}
-	}
-
-	for (size_t primitiveIndex = 0; primitiveIndex < m_Primitves.size(); primitiveIndex++)
-	{
-		Primitive& p = m_Primitves[primitiveIndex];
-		uint32_t lastPrimitiveVertexIdx = p.vertexOffset + p.vertexCount;
-		for (uint32_t i = p.vertexOffset; i < lastPrimitiveVertexIdx; i++)
-		{
-			m_Vertexs[i].normal = glm::normalize(m_Vertexs[i].normal);
-		}
+		for (auto duplicatedIndexe : duplicatedIndexesGroup)
+			m_Vertexs[duplicatedIndexe].normal = normalAcc;
 	}
 }
 

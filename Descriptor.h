@@ -12,7 +12,7 @@ public:
 
 	void DestroyDescriptorSetLayout(VkDevice device);
 
-	void AddUniformBuffer(VmaAllocator allocator, VkDevice device, VkDeviceSize size);
+	void AddUniformBuffer(VmaAllocator allocator, VkDeviceSize size);
 
 	void DestroyUniformBuffer(VmaAllocator allocator, VkDevice device);
 

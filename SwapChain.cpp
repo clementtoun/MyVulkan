@@ -113,10 +113,12 @@ void SwapChain::CreateFramebuffer(VkDevice device, VkRenderPass renderPass, GBuf
 
     for (int i = 0; i < m_Framebuffers.size(); i++)
     {
-        std::array<VkImageView, 6> attachments = { GBufferImages[i].positionImageBuffer.GetImageView(),  
+        std::array<VkImageView, 7> attachments = { 
+            GBufferImages[i].positionImageBuffer.GetImageView(),  
             GBufferImages[i].normalImageBuffer.GetImageView(),
             GBufferImages[i].colorImageBuffer.GetImageView(),
             GBufferImages[i].pbrImageBuffer.GetImageView(),
+            GBufferImages[i].emissiveImageBuffer.GetImageView(),
             depthAttachment, m_ImageViews[i]};
 
         VkFramebufferCreateInfo framebufferCreateInfo;

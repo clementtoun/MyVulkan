@@ -7,7 +7,7 @@
 class Image
 {
 public:
-	void CreateImage(VmaAllocator allocator, VkDevice device, uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, const std::vector<uint32_t> families);
+	void CreateImage(VmaAllocator allocator, uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, const std::vector<uint32_t> families, uint32_t mipLevels = 1);
 
 	void CreateImageView(VkDevice device, VkFormat format, VkImageAspectFlags aspectFlags);
 
@@ -21,21 +21,27 @@ public:
 
 	static VkFormat findDepthFormat(VkPhysicalDevice physicalDevice);
 
-	void TransitionImageLayout(VkDevice device, VkCommandPool transferPool, VkQueue transferQueue, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
+	void TransitionImageLayout(VkDevice device, VkCommandPool transferPool, VkQueue transferQueue, VkImageLayout oldLayout, VkImageLayout newLayout);
 
 	void CopyBufferToImage(VkDevice device, VkCommandPool transferPool, VkQueue transferQueue, VkBuffer buffer, uint32_t width, uint32_t height);
 
+	void generateMipmaps(VkDevice device, VkCommandPool transferPool, VkQueue transferQueue, int32_t texWidth, int32_t texHeight);
+
+	uint32_t GetMipLevels();
+
+private:
 	VkImage m_Image = VK_NULL_HANDLE;
 	VmaAllocation m_ImageAllocation;
 	VkImageView m_ImageView = VK_NULL_HANDLE;
+	uint32_t m_MipLevels = 1;
 };
 
 class TextureImage
 {
 public:
-	TextureImage(std::string& imagePath, VkFormat format, VmaAllocator allocator, VkDevice device, VkCommandPool transferPool, VkQueue transferQueue, VkCommandPool graphicPool, VkQueue graphicQueue, uint32_t transferFamilyIndice, uint32_t graphicFamilyIndice);
+	TextureImage(std::string& imagePath, VkFormat format, VmaAllocator allocator, VkDevice device, VkCommandPool transferPool, VkQueue transferQueue, VkCommandPool graphicPool, VkQueue graphicQueue, uint32_t transferFamilyIndice, uint32_t graphicFamilyIndice, bool useMipLevel);
 
-	TextureImage(unsigned char* pixels, int texWidth, int texHeight, VkFormat format, VmaAllocator allocator, VkDevice device, VkCommandPool transferPool, VkQueue transferQueue, VkCommandPool graphicPool, VkQueue graphicQueue, uint32_t transferFamilyIndice, uint32_t graphicFamilyIndice);
+	TextureImage(unsigned char* pixels, int texWidth, int texHeight, VkFormat format, VmaAllocator allocator, VkDevice device, VkCommandPool transferPool, VkQueue transferQueue, VkCommandPool graphicPool, VkQueue graphicQueue, uint32_t transferFamilyIndice, uint32_t graphicFamilyIndice, bool useMipLevel);
 
 	void CreateTextureSampler(VkDevice device);
 

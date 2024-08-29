@@ -131,11 +131,11 @@ std::string VulkanUtils::vkPhysicalDeviceInfoToString(const VkPhysicalDevice& ph
         {
             log += std::to_string(vkPhysicalDeviceProperties.pipelineCacheUUID[j]);
         }
-        log += "\nDeviceSparseProperties:\n\tresidencyStandard2DBlockShape: " + VulkanUtils::boolToString(vkPhysicalDeviceProperties.sparseProperties.residencyStandard2DBlockShape);
-        +"\n\tresidencyStandard2DMultisampleBlockShape: " + VulkanUtils::boolToString(vkPhysicalDeviceProperties.sparseProperties.residencyStandard2DMultisampleBlockShape);
+        log += "\nDeviceSparseProperties:\n\tresidencyStandard2DBlockShape: " + VulkanUtils::boolToString(vkPhysicalDeviceProperties.sparseProperties.residencyStandard2DBlockShape)
+        +"\n\tresidencyStandard2DMultisampleBlockShape: " + VulkanUtils::boolToString(vkPhysicalDeviceProperties.sparseProperties.residencyStandard2DMultisampleBlockShape)
         +"\n\tresidencyStandard3DBlockShape: " + VulkanUtils::boolToString(vkPhysicalDeviceProperties.sparseProperties.residencyStandard3DBlockShape)
-            + "\n\tresidencyAlignedMipSize: " + VulkanUtils::boolToString(vkPhysicalDeviceProperties.sparseProperties.residencyAlignedMipSize);
-        +"\n\tresidencyNonResidentStrict: " + VulkanUtils::boolToString(vkPhysicalDeviceProperties.sparseProperties.residencyNonResidentStrict);
+            + "\n\tresidencyAlignedMipSize: " + VulkanUtils::boolToString(vkPhysicalDeviceProperties.sparseProperties.residencyAlignedMipSize)
+        +"\n\tresidencyNonResidentStrict: " + VulkanUtils::boolToString(vkPhysicalDeviceProperties.sparseProperties.residencyNonResidentStrict)
         +"\n\tresidencyNonResidentStrict: " + VulkanUtils::boolToString(vkPhysicalDeviceProperties.sparseProperties.residencyNonResidentStrict);
     }
     else

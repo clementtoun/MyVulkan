@@ -4,7 +4,7 @@
 #include "tinyobjloader/tiny_obj_loader.h"
 #include "Mesh.h"
 #include "Materials.h"
-#include <glm/gtc/quaternion.hpp>
+#include "VkGLM.h"
 #include <iostream>
 
 namespace MeshLoader

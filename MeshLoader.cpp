@@ -2,8 +2,10 @@
 #define TINYGLTF_IMPLEMENTATION
 #define TINYOBJLOADER_IMPLEMENTATION
 #define TINYOBJLOADER_USE_MAPBOX_EARCUT
-#include "MeshLoader.h"
+
 #include <map>
+#include "MeshLoader.h"
+
 
 Mesh* MeshLoader::loadMeshObj(const std::string& path, const std::string& mtlSearchPath)
 {
@@ -51,12 +53,12 @@ Mesh* MeshLoader::loadMeshObj(const std::string& path, const std::string& mtlSea
 
         currentVertex.tex_coord = glm::vec2(0., 0.);
 
-        currentVertex.color[0] = 255 * 0.5;
-        currentVertex.color[1] = 255 * 0.5;
-        currentVertex.color[2] = 255 * 0.5;
+        currentVertex.color[0] = 126;
+        currentVertex.color[1] = 126;
+        currentVertex.color[2] = 126;
 
         if (attrib.normals.size() > 0)
-            verticesToSetNormal.insert(i/3);
+            verticesToSetNormal.insert(uint32_t(i/3));
         vertices.emplace_back(currentVertex);
     }
 
@@ -119,20 +121,33 @@ Mesh* loadMeshGltf(tinygltf::Model &model, tinygltf::Mesh &mesh, glm::mat4 trans
         tinygltf::Accessor normalAccessor{};
         tinygltf::Accessor tangentAccessor{};
         tinygltf::Accessor texCoordAccessor{};
+
+        bool NormalFromFile = false;
+        bool TangentFromFile = false;
+
         for (auto& attrib : primitive.attributes) 
         {
             if (attrib.first.compare("POSITION") == 0)
                 positionAccessor = model.accessors[attrib.second];
+
             if (attrib.first.compare("NORMAL") == 0)
+            {
                 normalAccessor = model.accessors[attrib.second];
+                NormalFromFile = true;
+            }
+
             if (attrib.first.compare("TANGENT") == 0)
+            {
                 tangentAccessor = model.accessors[attrib.second];
+                TangentFromFile = true;
+            }
+
             if (attrib.first.compare("TEXCOORD_0") == 0)
                 texCoordAccessor = model.accessors[attrib.second];
         }
 
-        bool NormalFromFile = normalAccessor.bufferView != -1 && !autoComputeNormal;
-        bool TangentFromFile = tangentAccessor.bufferView != -1 && !autoComputeTangent;
+        NormalFromFile = NormalFromFile && !autoComputeNormal;
+        TangentFromFile = TangentFromFile && !autoComputeTangent;
 
         if (positionAccessor.bufferView == -1 || texCoordAccessor.bufferView == -1)
             return nullptr;
@@ -148,7 +163,7 @@ Mesh* loadMeshGltf(tinygltf::Model &model, tinygltf::Mesh &mesh, glm::mat4 trans
         if (NormalFromFile)
         {
             normalBufferView = model.bufferViews[normalAccessor.bufferView];
-            normals = reinterpret_cast<const float*>(&model.buffers[normalBufferView.buffer].data[normalAccessor.byteOffset + normalBufferView.byteOffset]);
+            normals = reinterpret_cast<const float*>(&(model.buffers[normalBufferView.buffer].data[normalAccessor.byteOffset + normalBufferView.byteOffset]));
             normalIdxStride = normalAccessor.ByteStride(normalBufferView) / sizeof(float);
         }
 
@@ -158,19 +173,19 @@ Mesh* loadMeshGltf(tinygltf::Model &model, tinygltf::Mesh &mesh, glm::mat4 trans
         if (TangentFromFile)
         {
             tangentBufferView = model.bufferViews[tangentAccessor.bufferView];
-            tangents = reinterpret_cast<const float*>(&model.buffers[tangentBufferView.buffer].data[tangentAccessor.byteOffset + tangentBufferView.byteOffset]);
+            tangents = reinterpret_cast<const float*>(&(model.buffers[tangentBufferView.buffer].data[tangentAccessor.byteOffset + tangentBufferView.byteOffset]));
             tangentIdxStride = tangentAccessor.ByteStride(tangentBufferView) / sizeof(float);
         }
 
-        const float* positions = reinterpret_cast<const float*>(&model.buffers[positionBufferView.buffer].data[positionAccessor.byteOffset + positionBufferView.byteOffset]);
-        const float* texCoords = reinterpret_cast<const float*>(&model.buffers[texCoordBufferView.buffer].data[texCoordAccessor.byteOffset + texCoordBufferView.byteOffset]);
+        const float* positions = reinterpret_cast<const float*>(&(model.buffers[positionBufferView.buffer].data[positionAccessor.byteOffset + positionBufferView.byteOffset]));
+        const float* texCoords = reinterpret_cast<const float*>(&(model.buffers[texCoordBufferView.buffer].data[texCoordAccessor.byteOffset + texCoordBufferView.byteOffset]));
 
         int positionIdxStride = positionAccessor.ByteStride(positionBufferView) / sizeof(float);
         int texCoordIdxStride = texCoordAccessor.ByteStride(texCoordBufferView) / sizeof(float);
 
-        uint32_t vertexOffset = InternalMesh->GetVertex().size();
+        uint32_t vertexOffset = uint32_t(InternalMesh->GetVertex().size());
 
-        glm::mat3 vectorTransform = glm::mat3(glm::transpose(glm::inverse(transform)));
+        glm::mat3 vectorTransform = glm::inverseTranspose(glm::mat3(transform));
         
         for (size_t j = 0; j < nbVertexs; j++)
         {
@@ -187,9 +202,8 @@ Mesh* loadMeshGltf(tinygltf::Model &model, tinygltf::Mesh &mesh, glm::mat4 trans
                 normal.x = normals[j * normalIdxStride];
                 normal.y = normals[j * normalIdxStride + 1];
                 normal.z = normals[j * normalIdxStride + 2];
+                normal = glm::normalize(vectorTransform * normal);
             }
-
-            normal = glm::normalize(vectorTransform * normal);
 
             glm::vec3 tangent = glm::vec3(0.);
             if (TangentFromFile)
@@ -197,19 +211,18 @@ Mesh* loadMeshGltf(tinygltf::Model &model, tinygltf::Mesh &mesh, glm::mat4 trans
                 tangent.x = tangents[j * tangentIdxStride];
                 tangent.y = tangents[j * tangentIdxStride + 1];
                 tangent.z = tangents[j * tangentIdxStride + 2];
+                tangent = glm::normalize(vectorTransform * tangent);
             }
-
-            tangent = glm::normalize(vectorTransform * tangent);
 
             glm::vec2 texCoord;
             texCoord.x = texCoords[j * texCoordIdxStride];
             texCoord.y = texCoords[j * texCoordIdxStride + 1];
 
-            InternalMesh->AddVertex(Vertex{ position, normal, tangent, glm::vec3(0.), texCoord, {127, 127, 127} });
+            InternalMesh->AddVertex(Vertex{ position, normal, tangent, glm::vec3(0.f), texCoord, {126, 126, 126} });
         }
 
         size_t nbIndices = indexAccessor.count;
-        uint32_t indexOffset = InternalMesh->GetIndexes().size();
+        uint32_t indexOffset = uint32_t(InternalMesh->GetIndexes().size());
 
         tinygltf::BufferView& indexBufferView = model.bufferViews[indexAccessor.bufferView];
         const unsigned char* indexBufferData = &model.buffers[indexBufferView.buffer].data[indexAccessor.byteOffset + indexBufferView.byteOffset];
@@ -238,11 +251,11 @@ Mesh* loadMeshGltf(tinygltf::Model &model, tinygltf::Mesh &mesh, glm::mat4 trans
             }
         }
 
-        Primitive InternalPrimitive;
+        Primitive InternalPrimitive{};
         InternalPrimitive.firstIndex = indexOffset;
         InternalPrimitive.indexCount = static_cast<uint32_t>(nbIndices);
         InternalPrimitive.vertexOffset = vertexOffset;
-        InternalPrimitive.vertexCount = InternalMesh->GetVertex().size() - vertexOffset;
+        InternalPrimitive.vertexCount = static_cast<uint32_t>(InternalMesh->GetVertex().size()) - vertexOffset;
         InternalPrimitive.materialID = mapMaterialId.at(primitive.material);
 
         size_t primitiveIndex = InternalMesh->AddPrimitives(InternalPrimitive);
@@ -266,8 +279,8 @@ void loadModelMaterials(Materials& materials, tinygltf::Model& model, std::strin
         tinygltf::PbrMetallicRoughness& pbrMetallicRoughness = material.pbrMetallicRoughness;
 
         glm::vec3 baseColor = glm::vec3(pbrMetallicRoughness.baseColorFactor[0], pbrMetallicRoughness.baseColorFactor[1], pbrMetallicRoughness.baseColorFactor[2]);
-        float metallic = pbrMetallicRoughness.metallicFactor;
-        float roughness = pbrMetallicRoughness.roughnessFactor;
+        float metallic = float(pbrMetallicRoughness.metallicFactor);
+        float roughness = float(pbrMetallicRoughness.roughnessFactor);
 
         int baseColorTextureIndex = pbrMetallicRoughness.baseColorTexture.index;
         std::string baseColorTexturePath = "";
@@ -284,7 +297,37 @@ void loadModelMaterials(Materials& materials, tinygltf::Model& model, std::strin
         if (normalTextureIndex != -1)
             normalTexturePath = basePath + "/" + model.images[model.textures[normalTextureIndex].source].uri;
 
-        size_t materialIndex = materials.AddMeterial(baseColor, metallic, roughness, baseColorTexturePath, metallicRoughnessTexturePath, normalTexturePath);
+        int emissiveTextureIndex = material.emissiveTexture.index;
+        std::string emissiveTexturePath = "";
+        if (emissiveTextureIndex != -1)
+            emissiveTexturePath = basePath + "/" + model.images[model.textures[emissiveTextureIndex].source].uri;
+
+        int AOTextureIndex = material.occlusionTexture.index;
+        std::string AOTexturePath = "";
+        if (AOTextureIndex != -1)
+            AOTexturePath = basePath + "/" + model.images[model.textures[AOTextureIndex].source].uri;
+
+        Material myMaterial;
+        myMaterial.materialUniformBuffer.baseColor = baseColor;
+        myMaterial.materialUniformBuffer.metallic = metallic;
+        myMaterial.materialUniformBuffer.roughness = roughness;
+        myMaterial.baseColorTexturePath = baseColorTexturePath;
+        myMaterial.metallicRoughnessTexturePath = metallicRoughnessTexturePath;
+        myMaterial.normalTexturePath = normalTexturePath;
+        myMaterial.emissiveTexturePath = emissiveTexturePath;
+        myMaterial.AOTexturePath = AOTexturePath;
+        myMaterial.baseColorTexture = nullptr;
+        myMaterial.metallicRoughnessTexture = nullptr;
+        myMaterial.normalTexture = nullptr;
+        myMaterial.emissiveTexture = nullptr;
+        myMaterial.AOTexture = nullptr;
+        myMaterial.materialUniformBuffer.useBaseColorTexture = false;
+        myMaterial.materialUniformBuffer.useMetallicRoughnessTexture = false;
+        myMaterial.materialUniformBuffer.useNormalTexture = false;
+        myMaterial.materialUniformBuffer.useEmissiveTexture = false;
+        myMaterial.materialUniformBuffer.useAOTexture = false;
+
+        size_t materialIndex = materials.AddMaterial(std::move(myMaterial));
 
         mapMaterialId[i] = materialIndex;
     }
@@ -303,8 +346,8 @@ void loadModelNodes(tinygltf::Model& model, tinygltf::Node& node, glm::mat4 pare
     }
     else
     {
-        glm::vec3 translation = glm::vec3(1.f);
-        glm::quat rotation;
+        glm::vec3 translation = glm::vec3(0.f);
+        glm::quat rotation{};
         rotation.x = 0.f;
         rotation.y = 0.f;
         rotation.z = 0.f;
@@ -315,12 +358,7 @@ void loadModelNodes(tinygltf::Model& model, tinygltf::Node& node, glm::mat4 pare
             translation = glm::vec3(node.translation[0], node.translation[1], node.translation[2]);
 
         if (node.rotation.size() > 0)
-        {
-            rotation.x = node.rotation[0];
-            rotation.y = node.rotation[1];
-            rotation.z = node.rotation[2];
-            rotation.w = node.rotation[3];
-        }
+            rotation = glm::make_quat(node.rotation.data());
 
         if (node.scale.size() > 0)
             scale = glm::vec3(node.scale[0], node.scale[1], node.scale[2]);
@@ -328,11 +366,9 @@ void loadModelNodes(tinygltf::Model& model, tinygltf::Node& node, glm::mat4 pare
         nodeTransform = glm::translate(nodeTransform, translation);
         nodeTransform = nodeTransform * glm::mat4_cast(rotation);
         nodeTransform = glm::scale(nodeTransform, scale);
-
-        nodeTransform = nodeTransform;
     }
 
-    nodeTransform = nodeTransform * parentTransform;
+    nodeTransform = parentTransform * nodeTransform;
 
     if ((node.mesh >= 0) && (node.mesh < model.meshes.size()))
     {

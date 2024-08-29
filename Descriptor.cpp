@@ -19,7 +19,7 @@ void Descriptor::DestroyDescriptorSetLayout(VkDevice device)
 		vkDestroyDescriptorSetLayout(device, m_DescriptorSetLayout, NULL);
 }
 
-void Descriptor::AddUniformBuffer(VmaAllocator allocator, VkDevice device, VkDeviceSize size)
+void Descriptor::AddUniformBuffer(VmaAllocator allocator, VkDeviceSize size)
 {
 	VkBufferCreateInfo uniformBufferCreateInfo{};
 	uniformBufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;

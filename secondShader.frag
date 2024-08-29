@@ -6,6 +6,7 @@ layout (input_attachment_index = 0, set = 1, binding = 0) uniform subpassInput i
 layout (input_attachment_index = 1, set = 1, binding = 1) uniform subpassInput inputNormal;
 layout (input_attachment_index = 2, set = 1, binding = 2) uniform subpassInput inputColor;
 layout (input_attachment_index = 3, set = 1, binding = 3) uniform subpassInput inputPbr;
+layout (input_attachment_index = 4, set = 1, binding = 4) uniform subpassInput inputEmissive;
 
 layout(location = 0) out vec4 outColor;
 
@@ -40,10 +41,11 @@ void main() {
 
     vec4 Nw = subpassLoad(inputNormal);
     vec4 BaseColor = subpassLoad(inputColor);
+    vec4 Emissive = subpassLoad(inputEmissive);
 
     if (Nw.w == 1.)
     {
-        outColor = vec4(BaseColor.xyz, 1.);
+        outColor = vec4(pow(BaseColor.xyz, vec3(2.2)), 1.);
     }
     else
     {
@@ -62,15 +64,17 @@ void main() {
         float opacity = BaseColor.a;
         vec3 albedo = BaseColor.rgb;
 
-        vec2 MetallicRoughness = subpassLoad(inputPbr).xy;
+        vec3 MetallicRoughnessAO = subpassLoad(inputPbr).rgb;
 
-        float Metallic = MetallicRoughness.y;
+        float AO = MetallicRoughnessAO.b;
+
+        float Metallic = MetallicRoughnessAO.g;
         vec3 F0 = mix(vec3(0.04), albedo, Metallic);
 
-        float Roughness = MetallicRoughness.x;
+        float Roughness = MetallicRoughnessAO.r;
         float alpha = Roughness*Roughness;
 
-        vec3 C_Diff = mix(albedo, vec3(0.), Metallic);
+        vec3 C_Diff = albedo * (1. - Metallic);
         vec3 fDiff = (1. / PI) * C_Diff;
 
         vec3 color = vec3(0.);
@@ -93,9 +97,9 @@ void main() {
             color += BRDF * LigthColor * NL;
         }
 
-        vec3 ambiant = vec3(0.004) * albedo;
+        vec3 ambiant = vec3(0.004) * albedo * AO;
 
-        color += ambiant;
+        color += ambiant + Emissive.rgb;
 
         color = color / (color + 1.);
 
