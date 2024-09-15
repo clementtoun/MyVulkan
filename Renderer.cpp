@@ -10,7 +10,11 @@ static void framebufferResizeCallback(GLFWwindow* window, int width, int height)
     renderer->m_FramebufferResized = true;
 
     auto camera = renderer->GetCamera();
-    camera->SetAspect(width / (double) height);
+
+    double aspect = width / (double)height;
+
+    if (aspect - std::numeric_limits<double>::epsilon() > 0)
+        camera->SetAspect(width / (double)height);
 }
 
 static void cursorPosCallback(GLFWwindow* window, double xpos, double ypos) 
@@ -123,6 +127,18 @@ Renderer::Renderer(const std::string& ApplicationName, uint32_t ApplicationVersi
         m_Meshes.push_back(mesh);
     }
     meshes.clear();
+
+    std::array<std::string, 6> cubemapFacePaths;
+    cubemapFacePaths[0] = "C:/Users/clement/source/repos/MyVulkan/Textures/skybox/right.jpg";
+    cubemapFacePaths[1] = "C:/Users/clement/source/repos/MyVulkan/Textures/skybox/left.jpg";
+    cubemapFacePaths[2] = "C:/Users/clement/source/repos/MyVulkan/Textures/skybox/top.jpg";
+    cubemapFacePaths[3] = "C:/Users/clement/source/repos/MyVulkan/Textures/skybox/bottom.jpg";
+    cubemapFacePaths[4] = "C:/Users/clement/source/repos/MyVulkan/Textures/skybox/front.jpg";
+    cubemapFacePaths[5] = "C:/Users/clement/source/repos/MyVulkan/Textures/skybox/back.jpg";
+
+    m_CubeMap = new CubeMap(cubemapFacePaths, VK_FORMAT_R8G8B8A8_SRGB, m_Allocator, m_Device, m_TransferPool, m_TranferQueue, m_GraphicPool, m_GraphicsQueue, m_QueueFamilyIndices.transferFamily.value(), m_QueueFamilyIndices.graphicsFamily.value(), false);
+
+    m_CubeMap->CreateTextureSampler(m_Device);
 
     meshes = MeshLoader::loadGltf("./Models/GLTF/WaterBottle/glTF/WaterBottle.gltf", m_Materials);
 
@@ -260,6 +276,9 @@ Renderer::~Renderer()
     }
 
     CleanupCommandBuffers();
+
+    if (m_CubeMap && m_Device != VK_NULL_HANDLE)
+        m_CubeMap->Cleanup(m_Allocator, m_Device);
 
     if (m_Device != VK_NULL_HANDLE)
     {
@@ -930,18 +949,32 @@ void Renderer::CreatePerPassDescriptor()
     descriptorSetLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
     descriptorSetLayoutBinding.pImmutableSamplers = NULL;
 
-    m_PerPassDescriptor.CreateDescriptorSetLayout(m_Device, { descriptorSetLayoutBinding }, 0);
+    VkDescriptorSetLayoutBinding descriptorSetCubeMapLayoutBinding{};
+    descriptorSetCubeMapLayoutBinding.binding = 1;
+    descriptorSetCubeMapLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    descriptorSetCubeMapLayoutBinding.descriptorCount = 1;
+    descriptorSetCubeMapLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    descriptorSetCubeMapLayoutBinding.pImmutableSamplers = NULL;
+
+    m_PerPassDescriptor.CreateDescriptorSetLayout(m_Device, { descriptorSetLayoutBinding, descriptorSetCubeMapLayoutBinding }, 0);
 
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
         m_PerPassDescriptor.AddUniformBuffer(m_Allocator, sizeof(m_CameraUniform));
     }
 
-    VkDescriptorPoolSize descriptorPoolSize{};
-    descriptorPoolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    descriptorPoolSize.descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+    std::vector<VkDescriptorPoolSize> poolSizes{};
+    VkDescriptorPoolSize poolSize{};
 
-    m_PerPassDescriptor.CreateDescriptorPool(m_Device, { descriptorPoolSize }, MAX_FRAMES_IN_FLIGHT);
+    poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    poolSize.descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+    poolSizes.push_back(poolSize);
+
+    poolSize.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    poolSize.descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+    poolSizes.push_back(poolSize);
+
+    m_PerPassDescriptor.CreateDescriptorPool(m_Device, poolSizes, MAX_FRAMES_IN_FLIGHT);
 
     VkDescriptorSetLayout layout = m_PerPassDescriptor.GetDescriptorSetLayout();
     std::vector<VkDescriptorSetLayout> layouts;
@@ -959,18 +992,31 @@ void Renderer::CreatePerPassDescriptor()
         bufferInfo.offset = 0;
         bufferInfo.range = sizeof(m_CameraUniform);
 
-        VkWriteDescriptorSet descriptorWrite{};
-        descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrite.dstSet = descriptorSets[i ];
-        descriptorWrite.dstBinding = 0;
-        descriptorWrite.dstArrayElement = 0;
-        descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        descriptorWrite.descriptorCount = 1;
-        descriptorWrite.pBufferInfo = &bufferInfo;
-        descriptorWrite.pImageInfo = nullptr; // Optional
-        descriptorWrite.pTexelBufferView = nullptr; // Optional
+        std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
+        descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[0].dstSet = descriptorSets[i];
+        descriptorWrites[0].dstBinding = 0;
+        descriptorWrites[0].dstArrayElement = 0;
+        descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        descriptorWrites[0].descriptorCount = 1;
+        descriptorWrites[0].pBufferInfo = &bufferInfo;
+        descriptorWrites[0].pImageInfo = nullptr; // Optional
+        descriptorWrites[0].pTexelBufferView = nullptr; // Optional
 
-        vkUpdateDescriptorSets(m_Device, 1, &descriptorWrite, 0, nullptr);
+        VkDescriptorImageInfo cubeMapInfo{};
+        cubeMapInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        cubeMapInfo.imageView = m_CubeMap->GetImageView();
+        cubeMapInfo.sampler = m_CubeMap->GetTextureSampler();
+
+        descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[1].dstSet = descriptorSets[i];
+        descriptorWrites[1].dstBinding = 1;
+        descriptorWrites[1].dstArrayElement = 0;
+        descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        descriptorWrites[1].descriptorCount = 1;
+        descriptorWrites[1].pImageInfo = &cubeMapInfo;
+
+        vkUpdateDescriptorSets(m_Device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
     }
 }
 
@@ -1248,12 +1294,12 @@ void Renderer::CreateGraphicPipeline()
 
 void Renderer::CreateQuadMesh()
 {
-    m_simpleQuadMesh.AddVertex(Vertex(glm::vec3(-1., -1., 0.), glm::vec3(0.), glm::vec3(0.), glm::vec3(0.), glm::vec2(0.), {0, 0, 0}));
-    m_simpleQuadMesh.AddVertex(Vertex(glm::vec3(1., -1., 0.), glm::vec3(0.), glm::vec3(0.), glm::vec3(0.), glm::vec2(0.), {0, 0, 0}));
-    m_simpleQuadMesh.AddVertex(Vertex(glm::vec3(-1., 1., 0.), glm::vec3(0.), glm::vec3(0.), glm::vec3(0.), glm::vec2(0.), {0, 0, 0}));
-    m_simpleQuadMesh.AddVertex(Vertex(glm::vec3(-1., 1., 0.), glm::vec3(0.), glm::vec3(0.), glm::vec3(0.), glm::vec2(0.), {0, 0, 0}));
-    m_simpleQuadMesh.AddVertex(Vertex(glm::vec3(1., -1., 0.), glm::vec3(0.), glm::vec3(0.), glm::vec3(0.), glm::vec2(0.), {0, 0, 0}));
-    m_simpleQuadMesh.AddVertex(Vertex(glm::vec3(1., 1., 0.), glm::vec3(0.), glm::vec3(0.), glm::vec3(0.), glm::vec2(0.), {0, 0, 0}));
+    m_simpleQuadMesh.AddVertex(Vertex(glm::vec3(-1., -1., 0.), glm::vec3(0.), glm::vec3(0.), glm::vec3(0.), glm::vec2(-1, -1), {0, 0, 0}));
+    m_simpleQuadMesh.AddVertex(Vertex(glm::vec3(1., -1., 0.), glm::vec3(0.), glm::vec3(0.), glm::vec3(0.), glm::vec2(1., -1.), {0, 0, 0}));
+    m_simpleQuadMesh.AddVertex(Vertex(glm::vec3(-1., 1., 0.), glm::vec3(0.), glm::vec3(0.), glm::vec3(0.), glm::vec2(-1., 1.), {0, 0, 0}));
+    m_simpleQuadMesh.AddVertex(Vertex(glm::vec3(-1., 1., 0.), glm::vec3(0.), glm::vec3(0.), glm::vec3(0.), glm::vec2(-1., 1.), {0, 0, 0}));
+    m_simpleQuadMesh.AddVertex(Vertex(glm::vec3(1., -1., 0.), glm::vec3(0.), glm::vec3(0.), glm::vec3(0.), glm::vec2(1., -1.), {0, 0, 0}));
+    m_simpleQuadMesh.AddVertex(Vertex(glm::vec3(1., 1., 0.), glm::vec3(0.), glm::vec3(0.), glm::vec3(0.), glm::vec2(1., 1.), {0, 0, 0}));
 
     m_simpleQuadMesh.CreateVertexBuffers(m_Allocator, m_Device, m_TransferPool, m_TranferQueue, m_QueueFamilyIndices.transferFamily.value(), m_QueueFamilyIndices.graphicsFamily.value());
 }

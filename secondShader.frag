@@ -1,6 +1,10 @@
 #version 450
 
 layout(location = 0) in vec3 CamPosition;
+layout(location = 1) in vec3 WorldDirection;
+
+
+layout (set=0, binding=1) uniform samplerCube cubeMapTexture;
 
 layout (input_attachment_index = 0, set = 1, binding = 0) uniform subpassInput inputFragPos;
 layout (input_attachment_index = 1, set = 1, binding = 1) uniform subpassInput inputNormal;
@@ -45,13 +49,13 @@ void main() {
 
     if (Nw.w == 1.)
     {
-        outColor = vec4(pow(BaseColor.xyz, vec3(2.2)), 1.);
+        outColor = texture(cubeMapTexture, WorldDirection);
     }
     else
     {
-        vec3 LigthColor = vec3(1.);
-
         vec3 FragPos = subpassLoad(inputFragPos).xyz;
+
+        vec3 LigthColor = vec3(1.);
 
         vec3 L0 = normalize(vec3(4., 15., -10.) - FragPos);
         vec3 L1 = normalize(vec3(.5, 1., 0.5));

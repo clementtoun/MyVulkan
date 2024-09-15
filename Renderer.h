@@ -13,6 +13,7 @@
 #include "Descriptor.h"
 #include "Camera.h"
 #include "GBuffer.h"
+#include "CubeMap.h"
 #include <iostream>
 #include <string>
 #include <vector>
@@ -169,5 +170,7 @@ private:
 	bool m_Wireframe = false;
 
 	VkDescriptorPool m_ImGuiDescriptorPool = VK_NULL_HANDLE;
+
+	CubeMap* m_CubeMap;
 };
 

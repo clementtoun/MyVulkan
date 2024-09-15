@@ -1,9 +1,10 @@
 #include "Image.h"
 #include "VulkanUtils.h"
 
-void Image::CreateImage(VmaAllocator allocator, uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, const std::vector<uint32_t> families, uint32_t mipLevels)
+void Image::CreateImage(VmaAllocator allocator, uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, const std::vector<uint32_t> families, uint32_t mipLevels, uint32_t layer_count)
 {
     m_MipLevels = mipLevels;
+    m_layer_count = layer_count;
 
     VkImageCreateInfo imageCreateInfo{};
     imageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -12,12 +13,13 @@ void Image::CreateImage(VmaAllocator allocator, uint32_t width, uint32_t height,
     imageCreateInfo.extent.height = height;
     imageCreateInfo.extent.depth = 1;
     imageCreateInfo.mipLevels = m_MipLevels;
-    imageCreateInfo.arrayLayers = 1;
+    imageCreateInfo.arrayLayers = layer_count;
     imageCreateInfo.format = format;
     imageCreateInfo.tiling = tiling;
     imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     imageCreateInfo.usage = usage;
     imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+    imageCreateInfo.flags = m_layer_count == 6 ? VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT : 0;
     uint32_t familyCount = static_cast<uint32_t>(families.size());
     imageCreateInfo.queueFamilyIndexCount = familyCount;
     if (familyCount == 1)
@@ -42,18 +44,18 @@ void Image::CreateImage(VmaAllocator allocator, uint32_t width, uint32_t height,
     }
 }
 
-void Image::CreateImageView(VkDevice device, VkFormat format, VkImageAspectFlags aspectFlags)
+void Image::CreateImageView(VkDevice device, VkFormat format, VkImageAspectFlags aspectFlags, VkImageViewType viewType)
 {
     VkImageViewCreateInfo viewInfo{};
     viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     viewInfo.image = m_Image;
-    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    viewInfo.viewType = viewType;
     viewInfo.format = format;
     viewInfo.subresourceRange.aspectMask = aspectFlags;
     viewInfo.subresourceRange.baseMipLevel = 0;
     viewInfo.subresourceRange.levelCount = m_MipLevels;
     viewInfo.subresourceRange.baseArrayLayer = 0;
-    viewInfo.subresourceRange.layerCount = 1;
+    viewInfo.subresourceRange.layerCount = m_layer_count;
 
     if (vkCreateImageView(device, &viewInfo, nullptr, &m_ImageView) != VK_SUCCESS) {
         throw std::runtime_error("échec de la creation de la vue sur une image!");
@@ -126,7 +128,7 @@ void Image::TransitionImageLayout(VkDevice device, VkCommandPool transferPool, V
     barrier.subresourceRange.baseMipLevel = 0;
     barrier.subresourceRange.levelCount = m_MipLevels;
     barrier.subresourceRange.baseArrayLayer = 0;
-    barrier.subresourceRange.layerCount = 1;
+    barrier.subresourceRange.layerCount = m_layer_count;
 
     VkPipelineStageFlags sourceStage = 0;
     VkPipelineStageFlags destinationStage = 0;
@@ -173,7 +175,7 @@ void Image::CopyBufferToImage(VkDevice device, VkCommandPool transferPool, VkQue
     region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     region.imageSubresource.mipLevel = 0;
     region.imageSubresource.baseArrayLayer = 0;
-    region.imageSubresource.layerCount = 1;
+    region.imageSubresource.layerCount = m_layer_count;
 
     region.imageOffset = { 0, 0, 0 };
     region.imageExtent = {
@@ -205,7 +207,7 @@ void Image::generateMipmaps(VkDevice device, VkCommandPool transferPool, VkQueue
     barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     barrier.subresourceRange.baseArrayLayer = 0;
-    barrier.subresourceRange.layerCount = 1;
+    barrier.subresourceRange.layerCount = m_layer_count;
     barrier.subresourceRange.levelCount = 1;
 
     int32_t mipWidth = texWidth;

@@ -7,9 +7,9 @@
 class Image
 {
 public:
-	void CreateImage(VmaAllocator allocator, uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, const std::vector<uint32_t> families, uint32_t mipLevels = 1);
+	void CreateImage(VmaAllocator allocator, uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, const std::vector<uint32_t> families, uint32_t mipLevels = 1, uint32_t layer_count = 1);
 
-	void CreateImageView(VkDevice device, VkFormat format, VkImageAspectFlags aspectFlags);
+	void CreateImageView(VkDevice device, VkFormat format, VkImageAspectFlags aspectFlags, VkImageViewType viewType = VK_IMAGE_VIEW_TYPE_2D);
 
 	VkImage GetImage();
 
@@ -34,6 +34,7 @@ private:
 	VmaAllocation m_ImageAllocation;
 	VkImageView m_ImageView = VK_NULL_HANDLE;
 	uint32_t m_MipLevels = 1;
+	uint32_t m_layer_count = 1;
 };
 
 class TextureImage

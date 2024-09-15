@@ -136,6 +136,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Camera.cpp" />
+    <ClCompile Include="CubeMap.cpp" />
     <ClCompile Include="Descriptor.cpp" />
     <ClCompile Include="GBuffer.cpp" />
     <ClCompile Include="GlfwWindow.cpp" />
@@ -163,6 +164,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Camera.h" />
+    <ClInclude Include="CubeMap.h" />
     <ClInclude Include="Descriptor.h" />
     <ClInclude Include="GBuffer.h" />
     <ClInclude Include="GlfwWindow.h" />
