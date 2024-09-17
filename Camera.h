@@ -26,6 +26,7 @@ public:
 	virtual ~Camera();
 
 	virtual void Move(Direction direction, float deltaTime) = 0;
+	virtual void UpdatePosition(float deltaTime) = 0;
 	virtual void ProcessMouseMouve(double x, double y) = 0;
 	virtual void ProcessScroll(double xoffset, double yoffset) = 0;
 	virtual void ProcessMouseButton(int button, int action, int mods);
@@ -106,6 +107,7 @@ public:
 	QuaternionCamera(glm::vec3 position, glm::vec3 target, glm::vec3 up, double fov, double aspect, double near, double far);
 
 	void Move(Direction direction, float deltaTime) override;
+	void UpdatePosition(float deltaTime) override;
 	void ProcessMouseMouve(double x, double y) override;
 	void ProcessScroll(double xoffset, double yoffset) override {};
 
@@ -113,6 +115,10 @@ private:
 
 	float m_Yaw = 0;
 	float m_Pitch = 0;
+
+	glm::vec3 m_Deplacement = glm::vec3(0.f);
+	float m_Falloff = 0.f;
+	bool m_IsMoving = false;
 };
 
 

@@ -1529,6 +1529,8 @@ void Renderer::Draw()
     m_DeltaTime = std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - m_LastTime).count();
     m_LastTime = std::chrono::high_resolution_clock::now();
     ProcessKeyInput();
+
+    m_Camera->UpdatePosition(m_DeltaTime);
     UpdateUniform();
 
     vkResetCommandBuffer(m_CommandBuffers[m_CurrentFrame], 0);
