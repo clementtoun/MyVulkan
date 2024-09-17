@@ -523,6 +523,8 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="cpp.hint" />
+    <None Include="cubeMapShader.frag" />
+    <None Include="cubeMapShader.vert" />
     <None Include="firstShader.frag" />
     <None Include="firstShader.vert" />
     <None Include="Libs\include\glm\detail\func_common.inl" />

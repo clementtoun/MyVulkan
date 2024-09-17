@@ -1584,5 +1584,7 @@
     <None Include="Libs\include\glm\gtx\wrap.inl">
       <Filter>Fichiers d%27en-tête</Filter>
     </None>
+    <None Include="cubeMapShader.frag" />
+    <None Include="cubeMapShader.vert" />
   </ItemGroup>
 </Project>

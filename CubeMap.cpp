@@ -108,10 +108,148 @@ VkSampler CubeMap::GetTextureSampler()
     return m_TextureSampler;
 }
 
+void CubeMap::CreateVertexIndexCubeBuffer(VmaAllocator allocator, VkDevice device, VkCommandPool transferPool, VkQueue transferQueue, uint32_t transferFamilyIndice, uint32_t graphicFamilyIndice)
+{
+    std::array<VertexPos, 8> vertexs = { VertexPos({-1.f, -1.f, -1.f}), 
+                                        VertexPos({1.f, -1.f, -1.f}), 
+                                        VertexPos({1.f, 1.f, -1.f}), 
+                                        VertexPos({-1.f, 1.f, -1.f}), 
+                                        VertexPos({-1.f, -1.f, 1.f}), 
+                                        VertexPos({1.f, -1.f, 1.f}), 
+                                        VertexPos({1.f, 1.f, 1.f}), 
+                                        VertexPos({-1.f, 1.f, 1.f}) };
+
+    uint32_t queueFamilyIndices[2] = { transferFamilyIndice, graphicFamilyIndice };
+
+    VkDeviceSize vertexBufferSize = vertexs.size() * sizeof(VertexPos);
+
+    VkBufferCreateInfo stagingBufferInfo = {};
+    stagingBufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    stagingBufferInfo.size = vertexBufferSize;
+    stagingBufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+    stagingBufferInfo.sharingMode = VK_SHARING_MODE_CONCURRENT;
+    stagingBufferInfo.queueFamilyIndexCount = 2;
+    stagingBufferInfo.pQueueFamilyIndices = queueFamilyIndices;
+
+    VmaAllocationCreateInfo stagingAllocInfo = {};
+    stagingAllocInfo.usage = VMA_MEMORY_USAGE_AUTO;
+    stagingAllocInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+
+    VkBuffer stagingBuf = {};
+    VmaAllocation stagingAlloc = {};
+    vmaCreateBuffer(allocator, &stagingBufferInfo, &stagingAllocInfo, &stagingBuf, &stagingAlloc, NULL);
+
+    void* data = nullptr;
+    vmaMapMemory(allocator, stagingAlloc, &data);
+    memcpy(data, vertexs.data(), (size_t)vertexBufferSize);
+    vmaUnmapMemory(allocator, stagingAlloc);
+
+    VkBufferCreateInfo bufferInfo = {};
+    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bufferInfo.size = vertexBufferSize;
+    bufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+    bufferInfo.sharingMode = VK_SHARING_MODE_CONCURRENT;
+    bufferInfo.queueFamilyIndexCount = 2;
+    bufferInfo.pQueueFamilyIndices = queueFamilyIndices;
+
+    VmaAllocationCreateInfo allocCreateInfo = {};
+    allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
+    allocCreateInfo.flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
+    allocCreateInfo.priority = 1.0f;
+
+    vmaCreateBuffer(allocator, &bufferInfo, &allocCreateInfo, &m_VertexBuffer, &m_VertexBufferAlloc, NULL);
+
+    VulkanUtils::CopyBuffer(device, transferPool, transferQueue, stagingBuf, m_VertexBuffer, vertexBufferSize);
+
+    vkDestroyBuffer(device, stagingBuf, nullptr);
+    vmaFreeMemory(allocator, stagingAlloc);
+
+    std::array<uint32_t, 36> indexes = { 0, 1, 2, 
+        0, 2, 3, 
+        1, 5, 2, 
+        5, 6, 2, 
+        4, 6, 5, 
+        4, 7, 6, 
+        0, 3, 4, 
+        3, 7, 4, 
+        3, 2, 7, 
+        7, 2, 6, 
+        0, 4, 1, 
+        4, 5, 1};
+
+    VkDeviceSize indexBufferSize = indexes.size() * sizeof(uint32_t);
+
+    stagingBufferInfo = {};
+    stagingBufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    stagingBufferInfo.size = indexBufferSize;
+    stagingBufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+    stagingBufferInfo.sharingMode = VK_SHARING_MODE_CONCURRENT;
+    stagingBufferInfo.queueFamilyIndexCount = 2;
+    stagingBufferInfo.pQueueFamilyIndices = queueFamilyIndices;
+
+    stagingAllocInfo = {};
+    stagingAllocInfo.usage = VMA_MEMORY_USAGE_AUTO;
+    stagingAllocInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+
+    stagingBuf = {};
+    stagingAlloc = {};
+
+    vmaCreateBuffer(allocator, &stagingBufferInfo, &stagingAllocInfo, &stagingBuf, &stagingAlloc, NULL);
+
+    data = nullptr;
+    vmaMapMemory(allocator, stagingAlloc, &data);
+    memcpy(data, indexes.data(), (size_t)indexBufferSize);
+    vmaUnmapMemory(allocator, stagingAlloc);
+
+    bufferInfo = {};
+    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bufferInfo.size = indexBufferSize;
+    bufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+    bufferInfo.sharingMode = VK_SHARING_MODE_CONCURRENT;
+    bufferInfo.queueFamilyIndexCount = 2;
+    bufferInfo.pQueueFamilyIndices = queueFamilyIndices;
+
+    allocCreateInfo = {};
+    allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
+    allocCreateInfo.flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
+    allocCreateInfo.priority = 1.0f;
+
+    vmaCreateBuffer(allocator, &bufferInfo, &allocCreateInfo, &m_IndexBuffer, &m_IndexBufferAlloc, NULL);
+
+    VulkanUtils::CopyBuffer(device, transferPool, transferQueue, stagingBuf, m_IndexBuffer, indexBufferSize);
+
+    vkDestroyBuffer(device, stagingBuf, nullptr);
+    vmaFreeMemory(allocator, stagingAlloc);
+}
+
+void CubeMap::BindVertexBuffer(VkCommandBuffer commandBuffer)
+{
+    VkBuffer vertexBuffers[] = { m_VertexBuffer };
+    VkDeviceSize offsets[] = { 0 };
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+}
+
+void CubeMap::BindIndexBuffer(VkCommandBuffer commandBuffer)
+{
+    vkCmdBindIndexBuffer(commandBuffer, m_IndexBuffer, 0, VK_INDEX_TYPE_UINT32);
+}
+
 void CubeMap::Cleanup(VmaAllocator allocator, VkDevice device)
 {
     if (m_TextureSampler != VK_NULL_HANDLE)
         vkDestroySampler(device, m_TextureSampler, nullptr);
 
     m_ImageTexture.Cleanup(allocator, device);
+
+    if (m_VertexBuffer != VK_NULL_HANDLE)
+    {
+        vkDestroyBuffer(device, m_VertexBuffer, NULL);
+        vmaFreeMemory(allocator, m_VertexBufferAlloc);
+    }
+
+    if (m_IndexBuffer != VK_NULL_HANDLE)
+    {
+        vkDestroyBuffer(device, m_IndexBuffer, NULL);
+        vmaFreeMemory(allocator, m_IndexBufferAlloc);
+    }
 }

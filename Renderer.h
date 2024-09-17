@@ -86,6 +86,8 @@ public:
 
 	void UpdateGBufferDescriptor();
 
+	void CreateCubeMapGraphicPipeline();
+
 	void CreateGraphicPipeline();
 
 	void CreateQuadMesh();
@@ -142,8 +144,10 @@ private:
 	VkPipeline m_GraphicPipelineFirstPass = VK_NULL_HANDLE;
 	VkPipeline m_GraphicPipelineFirstPassLineMode = VK_NULL_HANDLE;
 	VkPipeline m_GraphicPipelineSecondPass = VK_NULL_HANDLE;
+	VkPipeline m_GraphicPipelineCubeMap = VK_NULL_HANDLE;
 	VkPipelineLayout m_GraphicPipelineFirstPassLayout = VK_NULL_HANDLE;
 	VkPipelineLayout m_GraphicPipelineSecondPassLayout = VK_NULL_HANDLE;
+	VkPipelineLayout m_GraphicPipelineCubeMapLayout = VK_NULL_HANDLE;
 	VkCommandPool m_TransferPool = VK_NULL_HANDLE;
 	VkCommandPool m_GraphicPool = VK_NULL_HANDLE;
 	std::vector<VkCommandBuffer> m_CommandBuffers;

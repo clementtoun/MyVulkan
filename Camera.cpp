@@ -223,41 +223,59 @@ QuaternionCamera::QuaternionCamera(glm::vec3 position, glm::vec3 target, glm::ve
 
 void QuaternionCamera::Move(Direction direction, float deltaTime)
 {
+    if (!m_IsMoving)
+    {
+        m_Deplacement = glm::vec3(0.f);
+        m_Falloff = 1.f;
+        m_IsMoving = true;
+    }
+
     switch (direction)
     {
-    case FORWARD:
-    {
-        m_Position += m_Forward * m_Speed * deltaTime;
-        break;
+        case FORWARD:
+        {
+            m_Deplacement += m_Forward;
+            break;
+        }
+        case LEFT:
+        {
+            m_Deplacement += m_Left;
+            break;
+        }
+        case BACKWARD:
+        {
+            m_Deplacement -= m_Forward;
+            break;
+        }
+        case RIGHT:
+        {
+            m_Deplacement -= m_Left;
+            break;
+        }
+        case UP:
+        {
+            m_Deplacement += m_WorldUp;
+            break;
+        }
+        case DOWN:
+        {
+            m_Deplacement -= m_WorldUp;
+            break;
+        }
     }
-    case LEFT:
+}
+
+void QuaternionCamera::UpdatePosition(float deltaTime)
+{
+    if (m_Deplacement != glm::vec3(0.f))
     {
-        m_Position += m_Left * m_Speed * deltaTime;
-        break;
-    }
-    case BACKWARD:
-    {
-        m_Position -= m_Forward * m_Speed * deltaTime;
-        break;
-    }
-    case RIGHT:
-    {
-        m_Position -= m_Left * m_Speed * deltaTime;
-        break;
-    }
-    case UP:
-    {
-        m_Position += m_WorldUp * m_Speed * deltaTime;
-        break;
-    }
-    case DOWN:
-    {
-        m_Position -= m_WorldUp * m_Speed * deltaTime;
-        break;
-    }
+        m_Position += glm::normalize(m_Deplacement) * m_Falloff * m_Speed * deltaTime;
+        m_Falloff = std::max(m_Falloff * 0.933f, 0.f);
     }
 
     UpdateViewMatrix();
+
+    m_IsMoving = false;
 }
 
 void QuaternionCamera::ProcessMouseMouve(double x, double y)
@@ -294,7 +312,5 @@ void QuaternionCamera::ProcessMouseMouve(double x, double y)
         m_Left = -glm::row(rotMatrix, 0);
         m_Up = glm::row(rotMatrix, 1);
         m_Forward = -glm::row(rotMatrix, 2);
-
-        UpdateViewMatrix();
     }
 }
