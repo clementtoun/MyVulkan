@@ -21,15 +21,15 @@ class SwapChain
 public:
 	SwapChain();
 
-	void BuildSwapChain(VkPhysicalDevice physicalDevice, VkDevice device, VkSurfaceKHR surface, GLFWwindow* window, const QueueFamilyIndices& queueFamilyIndices);
+	void BuildSwapChain(VkPhysicalDevice physicalDevice, VmaAllocator allocator, VkDevice device, VkSurfaceKHR surface, GLFWwindow* window, const QueueFamilyIndices& queueFamilyIndices);
 
-	void RebuildSwapChain(VkPhysicalDevice physicalDevice, VkDevice device, VkSurfaceKHR surface, GLFWwindow* window, const QueueFamilyIndices& queueFamilyIndices);
+	void RebuildSwapChain(VkPhysicalDevice physicalDevice, VmaAllocator allocator, VkDevice device, VkSurfaceKHR surface, GLFWwindow* window, const QueueFamilyIndices& queueFamilyIndices);
 
-	void CreateFramebuffer(VkDevice device, VkRenderPass renderPass, GBuffer& GBuffer, VkImageView depthAttachment);
+	void CreateFramebuffer(VkDevice device, VkRenderPass renderPass, VkRenderPass finalRenderPass, GBuffer& GBuffer, VkImageView depthAttachment);
 
 	SwapChainSupportDetails QuerySupportDetails(VkPhysicalDevice device, VkSurfaceKHR surface);
 
-	void Cleanup(VkDevice device);
+	void Cleanup(VkDevice device, VmaAllocator allocator);
 
 	VkSwapchainKHR GetSwapChain();
 
@@ -37,11 +37,21 @@ public:
 
 	const VkExtent2D& GetExtent();
 
-	const std::vector<VkImage>& GetImages();
+	const std::vector<VkImage> GetImages();
 
-	const std::vector<VkImageView>& GetImageViews();
+	const std::vector<VkImageView> GetImageViews();
 
 	const std::vector<VkFramebuffer>& GetFramebuffers();
+
+	const std::vector<VkImage>& GetFinalImage();
+
+	const std::vector<VkImageView>& GetFinalImageViews();
+
+	const std::vector<VkFramebuffer>& GetFinalFramebuffers();
+
+	void CreateImGuiImageDescriptor(VkDevice device);
+
+	const VkDescriptorSet& GetImGuiImageDescriptor(uint32_t i);
 
 private:
 
@@ -57,6 +67,10 @@ private:
 	VkSwapchainKHR m_SwapchainKHR = VK_NULL_HANDLE;
 	std::vector<VkImage> m_Images;
 	std::vector<VkImageView> m_ImageViews;
+	std::vector<Image> m_RTImages;
+	std::vector<VkSampler> m_Sampler;
+	std::vector<VkDescriptorSet> m_ImGuiDescriptor;
 	std::vector<VkFramebuffer> m_Framebuffers;
+	std::vector<VkFramebuffer> m_FinalFramebuffers;
 };
 

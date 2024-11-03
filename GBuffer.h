@@ -15,9 +15,9 @@ typedef struct s_GBUFFER
 class GBuffer
 {
 public:
-	void BuildGBuffer(uint8_t nbImages, uint32_t width, uint32_t height, std::vector<VkImageView> swapChainImageView, VmaAllocator allocator, VkDevice device, const std::vector<uint32_t> families);
+	void BuildGBuffer(uint8_t nbImages, uint32_t width, uint32_t height, VmaAllocator allocator, VkDevice device, const std::vector<uint32_t> families);
 
-	void ReBuildGBuffer(uint8_t nbImages, uint32_t width, uint32_t height, std::vector<VkImageView> swapChainImageView, VmaAllocator allocator, VkDevice device, const std::vector<uint32_t> families);
+	void ReBuildGBuffer(uint8_t nbImages, uint32_t width, uint32_t height, VmaAllocator allocator, VkDevice device, const std::vector<uint32_t> families);
 
 	void Cleanup(VmaAllocator allocator, VkDevice device);
 

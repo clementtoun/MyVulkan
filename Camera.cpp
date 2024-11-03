@@ -267,10 +267,14 @@ void QuaternionCamera::Move(Direction direction, float deltaTime)
 
 void QuaternionCamera::UpdatePosition(float deltaTime)
 {
-    if (m_Deplacement != glm::vec3(0.f))
+    if (m_Falloff > 0.f)
     {
-        m_Position += glm::normalize(m_Deplacement) * m_Falloff * m_Speed * deltaTime;
-        m_Falloff = std::max(m_Falloff * 0.933f, 0.f);
+        float DeplacementLength = glm::length(m_Deplacement);
+        if (DeplacementLength > 0.f)
+        {
+            m_Position += m_Deplacement / DeplacementLength * m_Falloff * m_Speed * deltaTime;
+            m_Falloff = std::max(m_Falloff - m_Falloff * deltaTime * 4.7f, 0.f);
+        }
     }
 
     UpdateViewMatrix();

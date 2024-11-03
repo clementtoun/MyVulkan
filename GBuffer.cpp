@@ -2,7 +2,7 @@
 
 #include <array>
 
-void GBuffer::BuildGBuffer(uint8_t nbImages, uint32_t width, uint32_t height, std::vector<VkImageView> swapChainImageView, VmaAllocator allocator, VkDevice device, const std::vector<uint32_t> families)
+void GBuffer::BuildGBuffer(uint8_t nbImages, uint32_t width, uint32_t height, VmaAllocator allocator, VkDevice device, const std::vector<uint32_t> families)
 {
 	m_GBufferImages.resize(nbImages);
 
@@ -25,13 +25,13 @@ void GBuffer::BuildGBuffer(uint8_t nbImages, uint32_t width, uint32_t height, st
 	}
 }
 
-void GBuffer::ReBuildGBuffer(uint8_t maxFramesInFlight, uint32_t width, uint32_t height, std::vector<VkImageView> swapChainImageView, VmaAllocator allocator, VkDevice device, const std::vector<uint32_t> families)
+void GBuffer::ReBuildGBuffer(uint8_t maxFramesInFlight, uint32_t width, uint32_t height, VmaAllocator allocator, VkDevice device, const std::vector<uint32_t> families)
 {
 	vkDeviceWaitIdle(device);
 
 	Cleanup(allocator, device);
 
-	BuildGBuffer(maxFramesInFlight, width, height, swapChainImageView, allocator, device, families);
+	BuildGBuffer(maxFramesInFlight, width, height, allocator, device, families);
 }
 
 void GBuffer::Cleanup(VmaAllocator allocator, VkDevice device)

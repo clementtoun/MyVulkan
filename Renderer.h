@@ -21,7 +21,7 @@
 #include <chrono>
 #include <map>
 
-const VkClearColorValue clearColor = { { 0.13, 0.18, 0.25, 1. } };
+constexpr VkClearColorValue clearColor = { { 0.13f, 0.18f, 0.25, 1. } };
 
 const std::string validationLayers = "VK_LAYER_KHRONOS_validation";
 
@@ -34,7 +34,10 @@ const std::vector<std::string> wantedLayers = { "VK_LAYER_LUNARG_monitor" };
 #endif
 
 const std::vector<const char*> deviceExtensions = {
-	VK_KHR_SWAPCHAIN_EXTENSION_NAME
+	VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+	VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
+	VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
+	VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME
 };
 
 #define MAX_FRAMES_IN_FLIGHT 3
@@ -96,9 +99,9 @@ public:
 
 	void CreateCommandBuffers();
 
-	void RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex, uint32_t currentFrame, ImDrawData* draw_data);
+	void RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t currentFrame, uint32_t imageIndex, ImDrawData* draw_data);
 
-	void CleanupCommandBuffers();
+	void CleanupCommandBuffers() const;
 
 	void CreateSyncObject();
 
@@ -110,7 +113,7 @@ public:
 
 	bool m_FramebufferResized = false;
 
-	Camera* GetCamera();
+	Camera* GetCamera() const;
 
 	void InitKeyPressedMap();
 
@@ -120,8 +123,10 @@ public:
 
 	ImGuiIO* m_io;
 
+	bool gameViewportHovered = false;
+
 private:
-	bool checkDeviceExtensionSupport(VkPhysicalDevice device);
+	static bool checkDeviceExtensionSupport(VkPhysicalDevice device);
 
 	bool isDeviceSuitable(VkPhysicalDevice device);
 
@@ -141,6 +146,7 @@ private:
 	VkQueue m_TranferQueue = VK_NULL_HANDLE;
 	SwapChain m_SwapChain;
 	RenderPass m_RenderPass;
+	RenderPass m_FinalRenderPass;
 	VkPipeline m_GraphicPipelineFirstPass = VK_NULL_HANDLE;
 	VkPipeline m_GraphicPipelineFirstPassLineMode = VK_NULL_HANDLE;
 	VkPipeline m_GraphicPipelineSecondPass = VK_NULL_HANDLE;
