@@ -14,6 +14,7 @@
 #include "Camera.h"
 #include "GBuffer.h"
 #include "CubeMap.h"
+#include "RayTracingAccelerationStructure.h"
 #include <iostream>
 #include <string>
 #include <vector>
@@ -35,9 +36,19 @@ const std::vector<std::string> wantedLayers = { "VK_LAYER_LUNARG_monitor" };
 
 const std::vector<const char*> deviceExtensions = {
 	VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+	VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,
 	VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
 	VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
-	VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME
+	VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
+	VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,  // Required for descriptor indexing in ray tracing
+};
+
+struct VulkanRayTracingFunctions {
+	PFN_vkCmdBuildAccelerationStructuresKHR vkCmdBuildAccelerationStructuresKHR;
+	PFN_vkBuildAccelerationStructuresKHR vkBuildAccelerationStructuresKHR;
+	PFN_vkCreateAccelerationStructureKHR vkCreateAccelerationStructureKHR;
+	PFN_vkGetAccelerationStructureBuildSizesKHR vkGetAccelerationStructureBuildSizesKHR;
+	// Ajoutez d'autres fonctions de ray tracing si nécessaires
 };
 
 #define MAX_FRAMES_IN_FLIGHT 3
@@ -144,6 +155,7 @@ private:
 	VkQueue m_GraphicsQueue = VK_NULL_HANDLE;
 	VkQueue m_PresentQueue = VK_NULL_HANDLE;
 	VkQueue m_TranferQueue = VK_NULL_HANDLE;
+	VkQueue m_ComputeQueue = VK_NULL_HANDLE;
 	SwapChain m_SwapChain;
 	RenderPass m_RenderPass;
 	RenderPass m_FinalRenderPass;
@@ -156,6 +168,7 @@ private:
 	VkPipelineLayout m_GraphicPipelineCubeMapLayout = VK_NULL_HANDLE;
 	VkCommandPool m_TransferPool = VK_NULL_HANDLE;
 	VkCommandPool m_GraphicPool = VK_NULL_HANDLE;
+	VkCommandPool m_ComputePool = VK_NULL_HANDLE;
 	std::vector<VkCommandBuffer> m_CommandBuffers;
 	std::vector<VkSemaphore> m_ImageAvailableSemaphores;
 	std::vector<VkSemaphore> m_RenderFinishedSemaphores;
@@ -166,6 +179,9 @@ private:
 	Descriptor m_GBufferDescriptor;
 	GBuffer m_GBuffer;
 	Mesh m_simpleQuadMesh;
+
+	//RAY TRACING
+	RayTracingAccelerationStructure* m_RayTracingAccelerationStructure;
 
 	Camera* m_Camera;
 	CameraUniform m_CameraUniform;

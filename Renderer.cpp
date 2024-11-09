@@ -1,3 +1,5 @@
+// ReSharper disable CppZeroConstantCanBeReplacedWithNullptr
+// ReSharper disable CppInconsistentNaming
 #include "Renderer.h"
 #include "MeshLoader.h"
 #include <array>
@@ -206,6 +208,10 @@ Renderer::Renderer(const std::string& ApplicationName, uint32_t ApplicationVersi
 
     CreateSyncObject();
 
+    std::cout << "Graphic index: " << m_QueueFamilyIndices.graphicsFamily.value() << " Compute index: " << m_QueueFamilyIndices.computeFamily.value() << " Transfert index: " << m_QueueFamilyIndices.transferFamily.value() << "\n";
+
+    m_RayTracingAccelerationStructure = new RayTracingAccelerationStructure(m_Device, m_PhysicalDevice, m_Allocator, m_ComputeQueue, m_ComputePool, m_Meshes, m_SwapChain.GetImageViews());
+
     m_Camera = new QuaternionCamera(glm::vec3(0., 1., 5.), glm::vec3(0., 0., 0.), glm::vec3(0., 1., 0.), 77., extent.width / static_cast<double>(extent.height), 0.5, 1000000.);
     m_Camera->SetSpeed(15.);
     m_Camera->SetMouseSensibility(5.);
@@ -262,6 +268,10 @@ Renderer::~Renderer()
 
     vkQueueWaitIdle(m_GraphicsQueue);
 
+    if (m_Device != VK_NULL_HANDLE && m_Allocator != VK_NULL_HANDLE)
+        m_RayTracingAccelerationStructure->Cleanup(m_Device, m_Allocator);
+    delete m_RayTracingAccelerationStructure;
+
     if (m_Device != VK_NULL_HANDLE)
     {
         for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
@@ -292,6 +302,9 @@ Renderer::~Renderer()
 
     if (m_Device != VK_NULL_HANDLE && m_GraphicPool != VK_NULL_HANDLE)
         vkDestroyCommandPool(m_Device, m_GraphicPool, NULL);
+
+    if (m_Device != VK_NULL_HANDLE && m_ComputePool != VK_NULL_HANDLE)
+        vkDestroyCommandPool(m_Device, m_ComputePool, NULL);
 
     if (m_Device != VK_NULL_HANDLE)
     {
@@ -499,6 +512,7 @@ void Renderer::CreateVmaAllocator()
     allocatorCreateInfo.physicalDevice = m_PhysicalDevice;
     allocatorCreateInfo.device = m_Device;
     allocatorCreateInfo.instance = m_Instance;
+    allocatorCreateInfo.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
     //allocatorCreateInfo.pVulkanFunctions = &vulkanFunctions;
 
     if (vmaCreateAllocator(&allocatorCreateInfo, &m_Allocator) != VK_SUCCESS)
@@ -523,8 +537,12 @@ void Renderer::FindQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface)
             queueFamilyIndices.graphicsFamily = i;
         }
 
+        if (queueFamily.queueFlags & VK_QUEUE_COMPUTE_BIT) {
+            queueFamilyIndices.computeFamily = i;
+        }
+
         if (queueFamily.queueFlags & VK_QUEUE_TRANSFER_BIT &&
-            !(queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT)) {
+            !(queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) && !(queueFamily.queueFlags & VK_QUEUE_COMPUTE_BIT)) {
             queueFamilyIndices.transferFamily = i;
         }
 
@@ -548,7 +566,7 @@ void Renderer::FindQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface)
 void Renderer::CreateLogicalDevice()
 {
     std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
-    std::set<uint32_t> uniqueQueueFamilies = { m_QueueFamilyIndices.graphicsFamily.value(), m_QueueFamilyIndices.presentFamily.value(), m_QueueFamilyIndices.transferFamily.value() };
+    std::set<uint32_t> uniqueQueueFamilies = { m_QueueFamilyIndices.graphicsFamily.value(), m_QueueFamilyIndices.presentFamily.value(), m_QueueFamilyIndices.transferFamily.value(), m_QueueFamilyIndices.computeFamily.value() };
 
     float queuePriority = 1.0f;
     for (uint32_t queueFamily : uniqueQueueFamilies) {
@@ -567,22 +585,40 @@ void Renderer::CreateLogicalDevice()
     if (enableValidationLayers)
         enabledLayers.push_back(validationLayers.data());
 
-    VkPhysicalDeviceFeatures deviceFeatures{};
-    deviceFeatures.samplerAnisotropy = VK_TRUE;
-    deviceFeatures.fillModeNonSolid = VK_TRUE;
-    deviceFeatures.sampleRateShading = VK_FALSE; // enable sample shading feature for the device
+    VkPhysicalDeviceFeatures2 deviceFeatures{};
+    deviceFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+    deviceFeatures.features.samplerAnisotropy = VK_TRUE;
+    deviceFeatures.features.fillModeNonSolid = VK_TRUE;
+    deviceFeatures.features.sampleRateShading = VK_FALSE; // enable sample shading feature for the device
+
+    VkPhysicalDeviceAccelerationStructureFeaturesKHR accelerationStructureFeatures = {};
+    accelerationStructureFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
+    accelerationStructureFeatures.accelerationStructure = VK_TRUE;
+
+    VkPhysicalDeviceRayTracingPipelineFeaturesKHR rayTracingPipelineFeatures = {};
+    rayTracingPipelineFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
+    rayTracingPipelineFeatures.rayTracingPipeline = VK_TRUE;  // Enable ray tracing pipeline
     
-    VkDeviceCreateInfo vkDeviceCreateInfo;
+    // Enable buffer device address feature as well
+    VkPhysicalDeviceBufferDeviceAddressFeatures bufferDeviceAddressFeatures = {};
+    bufferDeviceAddressFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES;
+    bufferDeviceAddressFeatures.bufferDeviceAddress = VK_TRUE;
+
+    // Link the feature structures in the pNext chain
+    deviceFeatures.pNext = &bufferDeviceAddressFeatures;
+    bufferDeviceAddressFeatures.pNext = &rayTracingPipelineFeatures;
+    rayTracingPipelineFeatures.pNext = &accelerationStructureFeatures;
+    
+    VkDeviceCreateInfo vkDeviceCreateInfo{};
     vkDeviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
     vkDeviceCreateInfo.flags = 0;
-    vkDeviceCreateInfo.pNext = NULL;
+    vkDeviceCreateInfo.pNext = &deviceFeatures;
     vkDeviceCreateInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
     vkDeviceCreateInfo.pQueueCreateInfos = queueCreateInfos.data();
     vkDeviceCreateInfo.enabledLayerCount = static_cast<uint32_t>(enabledLayers.size());
     vkDeviceCreateInfo.ppEnabledLayerNames = enabledLayers.data();
     vkDeviceCreateInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
     vkDeviceCreateInfo.ppEnabledExtensionNames = deviceExtensions.data();
-    vkDeviceCreateInfo.pEnabledFeatures = &deviceFeatures;
 
     if (vkCreateDevice(m_PhysicalDevice, &vkDeviceCreateInfo, NULL, &m_Device) != VK_SUCCESS)
     {
@@ -592,6 +628,7 @@ void Renderer::CreateLogicalDevice()
     vkGetDeviceQueue(m_Device, m_QueueFamilyIndices.graphicsFamily.value(), 0, &m_GraphicsQueue);
     vkGetDeviceQueue(m_Device, m_QueueFamilyIndices.presentFamily.value(), 0, &m_PresentQueue);
     vkGetDeviceQueue(m_Device, m_QueueFamilyIndices.transferFamily.value(), 0, &m_TranferQueue);
+    vkGetDeviceQueue(m_Device, m_QueueFamilyIndices.computeFamily.value(), 0, &m_ComputeQueue);
 
     if (m_GraphicsQueue == VK_NULL_HANDLE)
     {
@@ -604,6 +641,11 @@ void Renderer::CreateLogicalDevice()
     if (m_TranferQueue == VK_NULL_HANDLE)
     {
         std::cout << "Tranfer queue retrieve failed !" << '\n';
+    }
+
+    if (m_ComputeQueue == VK_NULL_HANDLE)
+    {
+        std::cout << "Compute queue retrieve failed !" << '\n';
     }
 }
 
@@ -717,7 +759,7 @@ void Renderer::CreateRenderPass()
     attachmentDescription.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
     attachmentDescription.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     attachmentDescription.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    attachmentDescription.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    attachmentDescription.finalLayout = VK_IMAGE_LAYOUT_GENERAL;
 
     VkAttachmentReference attachmentReference;
     attachmentReference.attachment = 6;
@@ -772,7 +814,7 @@ void Renderer::CreateRenderPass()
 
     m_FinalRenderPass.addSubPass(VK_PIPELINE_BIND_POINT_GRAPHICS, {}, { finalAttachmentReference }, {}, {}, {});
 
-    m_FinalRenderPass.addSubPassDependency(VK_SUBPASS_EXTERNAL, 0, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT, 0);
+    m_FinalRenderPass.addSubPassDependency(VK_SUBPASS_EXTERNAL, 0, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_INPUT_ATTACHMENT_READ_BIT, 0);
 
     m_FinalRenderPass.addSubPassDependency(0, VK_SUBPASS_EXTERNAL, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, 0);
 
@@ -980,9 +1022,9 @@ void Renderer::UpdateGBufferDescriptor()
 void Renderer::CreateCubeMapGraphicPipeline()
 {
     Shader firstVertexShader;
-    firstVertexShader.createModule(m_Device, "cubeMapVert.spv");
+    firstVertexShader.createModule(m_Device, ".\\Shader\\cubeMapVert.spv");
     Shader firstFragmentShader;
-    firstFragmentShader.createModule(m_Device, "cubeMapFrag.spv");
+    firstFragmentShader.createModule(m_Device, ".\\Shader\\cubeMapFrag.spv");
 
     VkPipelineShaderStageCreateInfo pipelineFirstVertexShaderStageCreateInfo;
     pipelineFirstVertexShaderStageCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -1254,14 +1296,14 @@ void Renderer::CreatePerPassDescriptor()
 void Renderer::CreateGraphicPipeline()
 {
     Shader firstVertexShader;
-    firstVertexShader.createModule(m_Device, "firstVert.spv");
+    firstVertexShader.createModule(m_Device, ".\\Shader\\firstVert.spv");
     Shader firstFragmentShader;
-    firstFragmentShader.createModule(m_Device, "firstFrag.spv");
+    firstFragmentShader.createModule(m_Device, ".\\Shader\\firstFrag.spv");
 
     Shader secondVertexShader;
-    secondVertexShader.createModule(m_Device, "secondVert.spv");
+    secondVertexShader.createModule(m_Device, ".\\Shader\\secondVert.spv");
     Shader secondFragmentShader;
-    secondFragmentShader.createModule(m_Device, "secondFrag.spv");
+    secondFragmentShader.createModule(m_Device, ".\\Shader\\secondFrag.spv");
 
     VkPipelineShaderStageCreateInfo pipelineFirstVertexShaderStageCreateInfo;
     pipelineFirstVertexShaderStageCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -1552,6 +1594,13 @@ void Renderer::CreateCommandPool()
     if (vkCreateCommandPool(m_Device, &poolInfo, nullptr, &m_TransferPool) != VK_SUCCESS) {
         std::cout << "Transfer command pool creation failed" << '\n';
     }
+
+    poolInfo.queueFamilyIndex = m_QueueFamilyIndices.computeFamily.value();
+    poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+
+    if (vkCreateCommandPool(m_Device, &poolInfo, nullptr, &m_ComputePool) != VK_SUCCESS) {
+        std::cout << "Compute command pool creation failed" << '\n';
+    }
 }
 
 void Renderer::CreateCommandBuffers() 
@@ -1677,6 +1726,45 @@ void Renderer::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t curre
 
     vkCmdEndRenderPass(commandBuffer);
 
+    /*
+    vkCmdPipelineBarrier(
+        commandBuffer,
+        VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,  // SrcStageMask (render pass)
+        VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,   // DstStageMask (ray tracing)
+        0,
+        0, nullptr,
+        0, nullptr,
+        0, nullptr);
+        */
+
+    if (*m_RayTracingAccelerationStructure->GetActiveRaytracingPtr())
+        m_RayTracingAccelerationStructure->RecordCommandBuffer(m_Device, commandBuffer, currentFrame, extent.width, extent.height);
+
+    VkImageMemoryBarrier imageBarrier = {};
+    imageBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    imageBarrier.oldLayout = VK_IMAGE_LAYOUT_GENERAL;                   // Layout actuel après le ray tracing
+    imageBarrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;  // Layout souhaité pour la render pass
+    imageBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    imageBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    imageBarrier.image = m_SwapChain.GetImages()[currentFrame];  // L'image générée par le ray tracing
+    imageBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    imageBarrier.subresourceRange.baseMipLevel = 0;
+    imageBarrier.subresourceRange.levelCount = 1;
+    imageBarrier.subresourceRange.baseArrayLayer = 0;
+    imageBarrier.subresourceRange.layerCount = 1;
+    imageBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;  // Accès en écriture par le ray tracing
+    imageBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;   // Accès en lecture pour la subpass
+
+    vkCmdPipelineBarrier(
+        commandBuffer,
+        VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,  // Étape de ray tracing en source
+        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,         // Étape de fragment shader pour la render pass
+        0,
+        0, nullptr,
+        0, nullptr,
+        1, &imageBarrier
+    );
+
     VkFramebuffer finalFramebuffers = m_SwapChain.GetFinalFramebuffers()[imageIndex];
 
     std::array<VkClearValue, 1> finalClearValues{};
@@ -1752,6 +1840,7 @@ void Renderer::Draw()
     if (result == VK_ERROR_OUT_OF_DATE_KHR)
     {
         m_SwapChain.RebuildSwapChain(m_PhysicalDevice, m_Allocator, m_Device, m_Surface, m_Window.getWindow(), m_QueueFamilyIndices);
+        m_RayTracingAccelerationStructure->UpdateImageDescriptor(m_Device, m_SwapChain.GetImageViews());
         CleanupCommandBuffers();
         m_DepthImage.Cleanup(m_Allocator, m_Device);
         CreateDepthRessources();
@@ -1786,6 +1875,8 @@ void Renderer::Draw()
         ImGui::Begin("Tools");
 
         ImGui::Checkbox("Wireframe", &m_Wireframe);
+
+        ImGui::Checkbox("RayTracing", m_RayTracingAccelerationStructure->GetActiveRaytracingPtr());
 
         ImGui::SliderFloat("CameraSpeed", m_Camera->GetSpeed(), 0., 100.);
 
@@ -1855,6 +1946,8 @@ void Renderer::Draw()
         std::cout << "Failed to submit draw command buffer!" << '\n';
     }
 
+    vkQueueWaitIdle(m_GraphicsQueue);
+
     VkPresentInfoKHR presentInfo{};
     presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 
@@ -1872,6 +1965,7 @@ void Renderer::Draw()
     if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || m_FramebufferResized)
     {
         m_SwapChain.RebuildSwapChain(m_PhysicalDevice, m_Allocator, m_Device, m_Surface, m_Window.getWindow(), m_QueueFamilyIndices);
+        m_RayTracingAccelerationStructure->UpdateImageDescriptor(m_Device, m_SwapChain.GetImageViews());
         CleanupCommandBuffers();
         m_DepthImage.Cleanup(m_Allocator, m_Device);
         CreateDepthRessources();
@@ -1899,6 +1993,8 @@ void Renderer::UpdateUniform()
 
     auto uniformAllocInfo = m_PerPassDescriptor.GetUniformAllocationInfos()[m_CurrentFrame];
 
+    m_RayTracingAccelerationStructure->UpdateUniform(glm::inverse(m_Camera->GetView()), glm::inverse(m_Camera->GetProjection()), m_CurrentFrame, m_Meshes);
+
     memcpy(uniformAllocInfo.pMappedData, &m_CameraUniform, sizeof(m_CameraUniform));
 
     if (!m_Meshes.empty())
@@ -1915,6 +2011,8 @@ void Renderer::UpdateUniform()
         char* modelsData = static_cast<char*>(malloc(m_Meshes.size() * paddedSize));
 
         m_Meshes[0]->SetModel(glm::rotate(m_Meshes[0]->GetModel(), glm::radians<float>(static_cast<float>(m_DeltaTime) * 32.36f), glm::vec3(0., 1., 0.)));
+
+        m_RayTracingAccelerationStructure->UpdateTransform(m_Device, m_Allocator, m_ComputeQueue, m_ComputePool, 0, m_Meshes[0]->GetModel());
 
         for (size_t i = 0; i < m_Meshes.size(); i++)
         {
@@ -1990,10 +2088,17 @@ bool Renderer::checkDeviceExtensionSupport(VkPhysicalDevice device)
 
 bool Renderer::isDeviceSuitable(VkPhysicalDevice device)
 {
-    VkPhysicalDeviceProperties deviceProperties;
-    VkPhysicalDeviceFeatures deviceFeatures;
+    VkPhysicalDeviceProperties deviceProperties{};
     vkGetPhysicalDeviceProperties(device, &deviceProperties);
-    vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
+
+    VkPhysicalDeviceBufferDeviceAddressFeatures physicalDeviceBufferDeviceAddressFeatures{};
+    physicalDeviceBufferDeviceAddressFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES;
+    
+    VkPhysicalDeviceFeatures2 deviceFeatures2{};
+    deviceFeatures2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+    deviceFeatures2.pNext = &physicalDeviceBufferDeviceAddressFeatures;
+    
+    vkGetPhysicalDeviceFeatures2(device, &deviceFeatures2);
 
     bool extensionsSupported = checkDeviceExtensionSupport(device);
 
@@ -2005,7 +2110,9 @@ bool Renderer::isDeviceSuitable(VkPhysicalDevice device)
 
     FindQueueFamilies(device, m_Surface);
 
-    bool suitable = m_QueueFamilyIndices.isComplete() && extensionsSupported && swapChainAdequate && deviceFeatures.samplerAnisotropy && deviceFeatures.fillModeNonSolid;
+    std::cout << "SamplerAnisotropy: " << deviceFeatures2.features.samplerAnisotropy << "\nFillModeNonSolid: " << deviceFeatures2.features.fillModeNonSolid << "\nBufferDeviceAddress: " << physicalDeviceBufferDeviceAddressFeatures.bufferDeviceAddress << "\n";
+
+    bool suitable = m_QueueFamilyIndices.isComplete() && extensionsSupported && swapChainAdequate && deviceFeatures2.features.samplerAnisotropy && deviceFeatures2.features.fillModeNonSolid && physicalDeviceBufferDeviceAddressFeatures.bufferDeviceAddress;
 
     return suitable;
 }

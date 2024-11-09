@@ -89,7 +89,7 @@ void Mesh::CreateVertexBuffers(VmaAllocator allocator, VkDevice device, VkComman
 	stagingBufferInfo.pQueueFamilyIndices = queueFamilyIndices;
 
 	VmaAllocationCreateInfo stagingAllocInfo = {};
-	stagingAllocInfo.usage = VMA_MEMORY_USAGE_AUTO;
+	stagingAllocInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
 	stagingAllocInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
 
 	VkBuffer stagingBuf = {};
@@ -104,14 +104,14 @@ void Mesh::CreateVertexBuffers(VmaAllocator allocator, VkDevice device, VkComman
 	VkBufferCreateInfo bufferInfo = {};
 	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 	bufferInfo.size = vertexBufferSize;
-	bufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+	bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
 	bufferInfo.sharingMode = VK_SHARING_MODE_CONCURRENT;
 	bufferInfo.queueFamilyIndexCount = 2;
 	bufferInfo.pQueueFamilyIndices = queueFamilyIndices;
 
 	VmaAllocationCreateInfo allocCreateInfo = {};
 	allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
-	allocCreateInfo.flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
+	allocCreateInfo.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
 	allocCreateInfo.priority = 1.0f;
 
 	vmaCreateBuffer(allocator, &bufferInfo, &allocCreateInfo, &m_VertexBuffer, &m_VertexBufferAlloc, NULL);
@@ -153,14 +153,14 @@ void Mesh::CreateIndexBuffers(VmaAllocator allocator, VkDevice device, VkCommand
 	VkBufferCreateInfo bufferInfo = {};
 	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 	bufferInfo.size = indexBufferSize;
-	bufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+	bufferInfo.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
 	bufferInfo.sharingMode = VK_SHARING_MODE_CONCURRENT;
 	bufferInfo.queueFamilyIndexCount = 2;
 	bufferInfo.pQueueFamilyIndices = queueFamilyIndices;
 
 	VmaAllocationCreateInfo allocCreateInfo = {};
 	allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
-	allocCreateInfo.flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
+	allocCreateInfo.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
 	allocCreateInfo.priority = 1.0f;
 
 	vmaCreateBuffer(allocator, &bufferInfo, &allocCreateInfo, &m_IndexBuffer, &m_IndexBufferAlloc, NULL);
@@ -181,6 +181,40 @@ void Mesh::BindVertexBuffer(VkCommandBuffer commandBuffer)
 void Mesh::BindIndexBuffer(VkCommandBuffer commandBuffer)
 {
 	vkCmdBindIndexBuffer(commandBuffer, m_IndexBuffer, 0, VK_INDEX_TYPE_UINT32);
+}
+
+bool Mesh::GetAccelerationStructureGeometry(VkDevice device, VkAccelerationStructureGeometryKHR& accelerationStructureGeometry)
+{
+	VkBufferDeviceAddressInfo deviceAddressInfo;
+	deviceAddressInfo.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
+	deviceAddressInfo.pNext = NULL;
+	
+	deviceAddressInfo.buffer = m_VertexBuffer;
+	uint64_t vertexDeviceAddress = vkGetBufferDeviceAddress(device, &deviceAddressInfo);
+	
+	deviceAddressInfo.buffer = m_IndexBuffer;
+	uint64_t indexDeviceAddress = vkGetBufferDeviceAddress(device, &deviceAddressInfo);
+
+	if (vertexDeviceAddress == NULL || indexDeviceAddress == NULL)
+	{
+		std::cout << "Failed to get vertexBufferDeviceAddress or indexBufferDeviceAddress ! " << "\n";
+		return false;
+	}
+	
+	accelerationStructureGeometry = {};
+	accelerationStructureGeometry.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
+	accelerationStructureGeometry.pNext = NULL;
+	accelerationStructureGeometry.flags = VK_GEOMETRY_OPAQUE_BIT_KHR;
+	accelerationStructureGeometry.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR;
+	accelerationStructureGeometry.geometry.triangles.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR;
+	accelerationStructureGeometry.geometry.triangles.vertexData.deviceAddress = vertexDeviceAddress;
+	accelerationStructureGeometry.geometry.triangles.indexData.deviceAddress = indexDeviceAddress;
+	accelerationStructureGeometry.geometry.triangles.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT;
+	accelerationStructureGeometry.geometry.triangles.maxVertex = static_cast<uint32_t>(m_Vertexs.size()) - 1;
+	accelerationStructureGeometry.geometry.triangles.vertexStride = sizeof(Vertex);
+	accelerationStructureGeometry.geometry.triangles.indexType = VK_INDEX_TYPE_UINT32;
+
+	return true;
 }
 
 const glm::mat4& Mesh::GetModel()

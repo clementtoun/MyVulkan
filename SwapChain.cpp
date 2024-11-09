@@ -93,7 +93,7 @@ void SwapChain::BuildSwapChain(VkPhysicalDevice physicalDevice, VmaAllocator all
     m_RTImages.resize(MAX_FRAMES_IN_FLIGHT);
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        m_RTImages[i].CreateImage(allocator, extent.width, extent.height, surfaceFormat.format, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, { queueFamilyIndices.graphicsFamily.value()});
+        m_RTImages[i].CreateImage(allocator, extent.width, extent.height, surfaceFormat.format, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, { queueFamilyIndices.graphicsFamily.value()});
         m_RTImages[i].CreateImageView(device, surfaceFormat.format, VK_IMAGE_ASPECT_COLOR_BIT);
     }
 }
@@ -328,7 +328,7 @@ SwapChainSupportDetails SwapChain::QuerySupportDetails(VkPhysicalDevice device, 
 VkSurfaceFormatKHR SwapChain::ChooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats)
 {
     for (const auto& availableFormat : availableFormats) {
-        if (availableFormat.format == VK_FORMAT_B8G8R8A8_SRGB && availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
+        if (availableFormat.format == VK_FORMAT_B8G8R8A8_UNORM && availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
             return availableFormat;
         }
     }

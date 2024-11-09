@@ -154,6 +154,7 @@
     <ClCompile Include="Materials.cpp" />
     <ClCompile Include="Mesh.cpp" />
     <ClCompile Include="MeshLoader.cpp" />
+    <ClCompile Include="RayTracingAccelerationStructure.cpp" />
     <ClCompile Include="Renderer.cpp" />
     <ClCompile Include="RenderPass.cpp" />
     <ClCompile Include="Shader.cpp" />
@@ -513,6 +514,7 @@
     <ClInclude Include="Mesh.h" />
     <ClInclude Include="MeshLoader.h" />
     <ClInclude Include="QueueVulkan.h" />
+    <ClInclude Include="RayTracingAccelerationStructure.h" />
     <ClInclude Include="Renderer.h" />
     <ClInclude Include="RenderPass.h" />
     <ClInclude Include="Shader.h" />
@@ -523,10 +525,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="cpp.hint" />
-    <None Include="cubeMapShader.frag" />
-    <None Include="cubeMapShader.vert" />
-    <None Include="firstShader.frag" />
-    <None Include="firstShader.vert" />
     <None Include="Libs\include\glm\detail\func_common.inl" />
     <None Include="Libs\include\glm\detail\func_common_simd.inl" />
     <None Include="Libs\include\glm\detail\func_exponential.inl" />
@@ -663,8 +661,17 @@
     <None Include="Libs\include\glm\gtx\vector_angle.inl" />
     <None Include="Libs\include\glm\gtx\vector_query.inl" />
     <None Include="Libs\include\glm\gtx\wrap.inl" />
-    <None Include="secondShader.frag" />
-    <None Include="secondShader.vert" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Shader\closesthit.rchit" />
+    <Content Include="Shader\cubeMapShader.frag" />
+    <Content Include="Shader\cubeMapShader.vert" />
+    <Content Include="Shader\firstShader.frag" />
+    <Content Include="Shader\firstShader.vert" />
+    <Content Include="Shader\miss.rmiss" />
+    <Content Include="Shader\raygen.rgen" />
+    <Content Include="Shader\secondShader.frag" />
+    <Content Include="Shader\secondShader.vert" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

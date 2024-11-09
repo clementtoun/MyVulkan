@@ -98,6 +98,8 @@ public:
 
 	void BindIndexBuffer(VkCommandBuffer commandBuffer);
 
+	bool GetAccelerationStructureGeometry(VkDevice device, VkAccelerationStructureGeometryKHR& accelerationStructureGeometry);
+
 	const glm::mat4& GetModel();
 
 	void SetModel(const glm::mat4& model);

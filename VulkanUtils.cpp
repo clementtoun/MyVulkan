@@ -157,28 +157,35 @@ VkCommandBuffer VulkanUtils::BeginSingleTimeCommands(VkDevice device, VkCommandP
     commandBufferallocInfo.commandBufferCount = 1;
 
     VkCommandBuffer commandBuffer;
-    vkAllocateCommandBuffers(device, &commandBufferallocInfo, &commandBuffer);
+    if (vkAllocateCommandBuffers(device, &commandBufferallocInfo, &commandBuffer) != VK_SUCCESS)
+        std::cout << "Failed to allocate single time command buffer !" << "\n";
 
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
-    vkBeginCommandBuffer(commandBuffer, &beginInfo);
-
+    if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS)
+        std::cout << "Failed to begin single time command buffer !" << "\n";
+    
     return commandBuffer;
 }
 
 void VulkanUtils::EndSingleTimeCommands(VkDevice device, VkCommandPool transferPool, VkQueue transferQueue, VkCommandBuffer commandBuffer)
 {
-    vkEndCommandBuffer(commandBuffer);
+    if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)
+        std::cout << "Failed to end single time command buffer !" << "\n";
 
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     submitInfo.commandBufferCount = 1;
     submitInfo.pCommandBuffers = &commandBuffer;
 
-    vkQueueSubmit(transferQueue, 1, &submitInfo, VK_NULL_HANDLE);
-    vkQueueWaitIdle(transferQueue);
+    if (vkQueueSubmit(transferQueue, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS)
+        std::cout << "Failed to submit single time command buffer !" << "\n";
+
+    VkResult result = vkQueueWaitIdle(transferQueue);
+    if (result != VK_SUCCESS)
+        std::cout << "Failed to queueWaitIdle single time command buffer ! " << result << "\n";
 
     vkFreeCommandBuffers(device, transferPool, 1, &commandBuffer);
 }
@@ -192,6 +199,11 @@ void VulkanUtils::CopyBuffer(VkDevice device, VkCommandPool transferPool, VkQueu
     vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
 
     VulkanUtils::EndSingleTimeCommands(device, transferPool, transferQueue, commandBuffer);
+}
+
+uint32_t VulkanUtils::alignedSize(uint32_t size, uint32_t align)
+{
+    return ((size - 1) / align + 1) * align;
 }
 
 std::string VulkanUtils::boolToString(bool b)
