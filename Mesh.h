@@ -98,7 +98,11 @@ public:
 
 	void BindIndexBuffer(VkCommandBuffer commandBuffer);
 
-	bool GetAccelerationStructureGeometry(VkDevice device, VkAccelerationStructureGeometryKHR& accelerationStructureGeometry);
+	bool GetAccelerationStructureGeometrys(VkDevice device, std::vector<VkAccelerationStructureGeometryKHR>& accelerationStructureGeometrys);
+
+	void GetAccelerationStructureRangeInfos(std::vector<VkAccelerationStructureBuildRangeInfoKHR>& accelerationStructureRangeInfos);
+
+	void GetPrimitvesTrianglesCounts(std::vector<uint32_t>& primitivesTrianglesCounts);
 
 	const glm::mat4& GetModel();
 

@@ -8,17 +8,23 @@ layout(location = 4) in vec2 inTexCoord;
 layout(location = 5) in vec3 inColor;
 
 layout(location = 0) out vec3 CamPosition;
+layout(location = 1) out flat int NumDirectionalLights;
+layout(location = 2) out flat int NumPointLights;
 
-layout (set=0, binding=0) uniform Camera
+layout (set=0, binding=0) uniform Scene
 {
     mat4 view;
     mat4 projection;
     vec3 camPosition;
-    float padding;
+    int padding;
+    int numDirectionalLights;
+    int numPointLights;
 };
 
 void main() {
-    CamPosition = camPosition;
+    CamPosition = vec3(camPosition);
+    NumDirectionalLights = numDirectionalLights;
+    NumPointLights = numPointLights;
 
     gl_Position = vec4(inPosition, 1.);
 }

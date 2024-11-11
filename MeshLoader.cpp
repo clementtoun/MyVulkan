@@ -281,6 +281,7 @@ void loadModelMaterials(Materials& materials, tinygltf::Model& model, std::strin
         glm::vec3 baseColor = glm::vec3(pbrMetallicRoughness.baseColorFactor[0], pbrMetallicRoughness.baseColorFactor[1], pbrMetallicRoughness.baseColorFactor[2]);
         float metallic = float(pbrMetallicRoughness.metallicFactor);
         float roughness = float(pbrMetallicRoughness.roughnessFactor);
+        glm::vec3 emissiveColor = glm::vec3(material.emissiveFactor[0], material.emissiveFactor[1], material.emissiveFactor[2]);
 
         int baseColorTextureIndex = pbrMetallicRoughness.baseColorTexture.index;
         std::string baseColorTexturePath = "";
@@ -308,6 +309,7 @@ void loadModelMaterials(Materials& materials, tinygltf::Model& model, std::strin
             AOTexturePath = basePath + "/" + model.images[model.textures[AOTextureIndex].source].uri;
 
         Material myMaterial;
+        myMaterial.materialUniformBuffer.emissiveColor = emissiveColor;
         myMaterial.materialUniformBuffer.baseColor = baseColor;
         myMaterial.materialUniformBuffer.metallic = metallic;
         myMaterial.materialUniformBuffer.roughness = roughness;

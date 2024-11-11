@@ -14,9 +14,12 @@ layout(set = 2, binding = 0) uniform Material
     int useMetallicRoughnessTexture;      
     int useNormalTexture;  
     int useEmissiveTexture;
-    int useAOTexture;   
+    int useAOTexture;
     int padding;
-    vec3 baseColor;                                  
+    vec3 baseColor;
+    int padding2;
+    vec3 emissiveColor;
+    int padding3;
 };
 
 layout(set = 2, binding = 1) uniform sampler2D texSampler[5];
@@ -30,11 +33,10 @@ layout(location = 4) out vec4 outEmissive;
 void main() {
     vec3 Normal = useNormalTexture == 1 ? normalize(ModelToTangentLocal * (texture(texSampler[2], TexCoord).rgb * 2. - 1.)) : Normal;
     vec4 Color = useBaseColorTexture == 1 ? texture(texSampler[0], TexCoord) : vec4(baseColor, 1.);
-
-    vec3 PbrAO = texture(texSampler[1], TexCoord).rgb;
+    
     vec2 MetallicRoughness = useMetallicRoughnessTexture == 1 ? texture(texSampler[1], TexCoord).gb : vec2(roughness, metallic);
 
-    vec3 Emissive = useEmissiveTexture == 1 ? texture(texSampler[3], TexCoord).rgb : vec3(0.);
+    vec3 Emissive = useEmissiveTexture == 1 ? texture(texSampler[3], TexCoord).rgb : emissiveColor;
 
     float AO = useAOTexture == 1 ? texture(texSampler[4], TexCoord).r : 1.;
 

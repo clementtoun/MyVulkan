@@ -13,17 +13,19 @@ layout(location = 2) out vec3 FragColor;
 layout(location = 3) out vec3 WorldFragPos;
 layout(location = 4) out mat3 ModelToTangentLocal;
 
-layout (set=0, binding=0) uniform Models
+layout (set=1, binding=0) uniform Models
 {
     mat4 model;
 };
 
-layout (set=1, binding=0) uniform Camera
+layout (set=0, binding=0) uniform Scene
 {
     mat4 view;
     mat4 projection;
     vec3 camPosition;
-    float padding;
+    int padding;
+    int numDirectionalLights;
+    int numPointLights;
 };
 
 void main() {

@@ -2,12 +2,14 @@
 
 layout(location = 0) in vec3 inPosition;
 
-layout (set=0, binding=0) uniform Camera
+layout (set=0, binding=0) uniform Scene
 {
     mat4 view;
     mat4 projection;
     vec3 camPosition;
-    float padding;
+    int padding;
+    int numDirectionalLights;
+    int numPointLights;
 };
 
 layout(location = 0) out vec3 WorldFragPos;

@@ -6,17 +6,17 @@
 #include "VkGLM.h"
 #include <vector>
 
-struct MaterialUniformBuffer
+struct alignas(16) MaterialUniformBuffer
 {
-	float metallic;
-	float roughness;
-	int useBaseColorTexture;
-	int useMetallicRoughnessTexture;
-	int useNormalTexture;
-	int useEmissiveTexture;
-	int useAOTexture;
-	int padding;
-	glm::vec3 baseColor;
+	alignas(4) float metallic;
+	alignas(4) float roughness;
+	alignas(4) int useBaseColorTexture;
+	alignas(4) int useMetallicRoughnessTexture;
+	alignas(4) int useNormalTexture;
+	alignas(4) int useEmissiveTexture;
+	alignas(4) int useAOTexture;
+	alignas(16) glm::vec3 baseColor;
+	alignas(16) glm::vec3 emissiveColor;
 };
 
 struct Material
@@ -46,6 +46,8 @@ public:
 	VkDescriptorSetLayout GetDescriptorSetsLayout();
 
 	void BindMaterial(size_t index, VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout);
+
+	std::vector<Material>& GetMaterials();
 
 	void Cleanup(VmaAllocator allocator, VkDevice device);
 

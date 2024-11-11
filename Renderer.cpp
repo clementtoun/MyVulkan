@@ -128,6 +128,28 @@ Renderer::Renderer(const std::string& ApplicationName, uint32_t ApplicationVersi
         m_Meshes.push_back(mesh);
     }
     meshes.clear();
+    
+    meshes = MeshLoader::loadGltf("./Models/GLTF/Cube/glTF/Cube.gltf", m_Materials);
+
+    for (auto mesh : meshes)
+    {
+        mesh->CreateVertexBuffers(m_Allocator, m_Device, m_TransferPool, m_TranferQueue, m_QueueFamilyIndices.transferFamily.value(), m_QueueFamilyIndices.graphicsFamily.value());
+        mesh->CreateIndexBuffers(m_Allocator, m_Device, m_TransferPool, m_TranferQueue, m_QueueFamilyIndices.transferFamily.value(), m_QueueFamilyIndices.graphicsFamily.value());
+        mesh->SetModel(glm::scale(glm::translate(glm::mat4(1.f), glm::vec3(5., 5., 5.)), glm::vec3(0.2f)));
+        m_Meshes.push_back(mesh);
+    }
+    meshes.clear();
+
+    auto& cubeMat = m_Materials.GetMaterials()[m_Materials.GetMaterials().size() - 1];
+    cubeMat.emissiveTexturePath = "";
+    cubeMat.normalTexturePath = "";
+    cubeMat.baseColorTexturePath = "";
+    cubeMat.metallicRoughnessTexturePath = "";
+    cubeMat.materialUniformBuffer.baseColor = glm::vec3(0.);
+    cubeMat.materialUniformBuffer.metallic = 0.;
+    cubeMat.materialUniformBuffer.roughness = 0.;
+    cubeMat.materialUniformBuffer.emissiveColor = glm::vec3(1.f, 0.7f, 0.161f);
+    m_PointLights.emplace_back(glm::vec3(5., 5., 5.), glm::vec3(1.f, 0.7f, 0.161f), 1.f);
 
     std::array<std::string, 6> cubemapFacePaths;
     cubemapFacePaths[0] = "./Textures/skybox/right.jpg";
@@ -187,6 +209,8 @@ Renderer::Renderer(const std::string& ApplicationName, uint32_t ApplicationVersi
         m_Meshes.push_back(mesh);
     }
     meshes.clear();
+
+    m_DirectionalLights.emplace_back(glm::vec3(-0.5f, -1.f, 0.25f), glm::vec3(1.f), 1.f);
 
     CreateQuadMesh();
 
@@ -268,9 +292,11 @@ Renderer::~Renderer()
 
     vkQueueWaitIdle(m_GraphicsQueue);
 
-    if (m_Device != VK_NULL_HANDLE && m_Allocator != VK_NULL_HANDLE)
+    if (m_Device != VK_NULL_HANDLE && m_Allocator != VK_NULL_HANDLE && m_RayTracingAccelerationStructure)
+    {
         m_RayTracingAccelerationStructure->Cleanup(m_Device, m_Allocator);
-    delete m_RayTracingAccelerationStructure;
+        delete m_RayTracingAccelerationStructure;
+    }
 
     if (m_Device != VK_NULL_HANDLE)
     {
@@ -315,6 +341,7 @@ Renderer::~Renderer()
         m_PerPassDescriptor.DestroyDescriptorPool(m_Device);
         m_PerPassDescriptor.DestroyDescriptorSetLayout(m_Device);
         m_PerPassDescriptor.DestroyUniformBuffer(m_Allocator, m_Device);
+        m_PerPassDescriptor.DestroyStorageBuffer(m_Allocator, m_Device);
 
         m_Materials.Cleanup(m_Allocator, m_Device);
 
@@ -841,7 +868,7 @@ void Renderer::CreatePerMeshDescriptor()
         VkDeviceSize minSize = properties.limits.minUniformBufferOffsetAlignment;
 
         uint64_t bufferSize = sizeof(glm::mat4);
-        uint64_t paddedSize = minSize - bufferSize + bufferSize;
+        uint64_t paddedSize = (bufferSize + minSize - 1) & ~(minSize - 1);
 
         for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
         {
@@ -1229,11 +1256,27 @@ void Renderer::CreatePerPassDescriptor()
     descriptorSetCubeMapLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
     descriptorSetCubeMapLayoutBinding.pImmutableSamplers = NULL;
 
-    m_PerPassDescriptor.CreateDescriptorSetLayout(m_Device, { descriptorSetLayoutBinding, descriptorSetCubeMapLayoutBinding }, 0);
+    VkDescriptorSetLayoutBinding descriptorDirectionalLightsLayoutBinding{};
+    descriptorDirectionalLightsLayoutBinding.binding = 2;
+    descriptorDirectionalLightsLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    descriptorDirectionalLightsLayoutBinding.descriptorCount = 1;
+    descriptorDirectionalLightsLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    descriptorDirectionalLightsLayoutBinding.pImmutableSamplers = NULL;
+
+    VkDescriptorSetLayoutBinding descriptorPointLightsLayoutBinding{};
+    descriptorPointLightsLayoutBinding.binding = 3;
+    descriptorPointLightsLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    descriptorPointLightsLayoutBinding.descriptorCount = 1;
+    descriptorPointLightsLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    descriptorPointLightsLayoutBinding.pImmutableSamplers = NULL;
+
+    m_PerPassDescriptor.CreateDescriptorSetLayout(m_Device, { descriptorSetLayoutBinding, descriptorSetCubeMapLayoutBinding, descriptorDirectionalLightsLayoutBinding, descriptorPointLightsLayoutBinding }, 0);
 
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        m_PerPassDescriptor.AddUniformBuffer(m_Allocator, sizeof(m_CameraUniform));
+        m_PerPassDescriptor.AddUniformBuffer(m_Allocator, sizeof(SceneUniform));
+        m_PerPassDescriptor.AddStorageBuffer(m_Allocator, m_DirectionalLights.size() * sizeof(UniformDirectionalLight));
+        m_PerPassDescriptor.AddStorageBuffer(m_Allocator, m_PointLights.size() * sizeof(UniformPointLight));
     }
 
     std::vector<VkDescriptorPoolSize> poolSizes{};
@@ -1247,6 +1290,10 @@ void Renderer::CreatePerPassDescriptor()
     poolSize.descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
     poolSizes.push_back(poolSize);
 
+    poolSize.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    poolSize.descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * 2;
+    poolSizes.push_back(poolSize);
+
     m_PerPassDescriptor.CreateDescriptorPool(m_Device, poolSizes, MAX_FRAMES_IN_FLIGHT);
 
     VkDescriptorSetLayout layout = m_PerPassDescriptor.GetDescriptorSetLayout();
@@ -1256,16 +1303,17 @@ void Renderer::CreatePerPassDescriptor()
     m_PerPassDescriptor.AllocateDescriptorSet(m_Device, layouts);
 
     auto uniformBuffers = m_PerPassDescriptor.GetUniformBuffers();
+    auto storageBuffers = m_PerPassDescriptor.GetUniformStorageBuffers();
     auto descriptorSets = m_PerPassDescriptor.GetDescriptorSets();
 
-    for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
         VkDescriptorBufferInfo bufferInfo{};
         bufferInfo.buffer = uniformBuffers[i];
         bufferInfo.offset = 0;
-        bufferInfo.range = sizeof(m_CameraUniform);
+        bufferInfo.range = sizeof(SceneUniform);
 
-        std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
+        std::array<VkWriteDescriptorSet, 4> descriptorWrites{};
         descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         descriptorWrites[0].dstSet = descriptorSets[i];
         descriptorWrites[0].dstBinding = 0;
@@ -1273,8 +1321,6 @@ void Renderer::CreatePerPassDescriptor()
         descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
         descriptorWrites[0].descriptorCount = 1;
         descriptorWrites[0].pBufferInfo = &bufferInfo;
-        descriptorWrites[0].pImageInfo = nullptr; // Optional
-        descriptorWrites[0].pTexelBufferView = nullptr; // Optional
 
         VkDescriptorImageInfo cubeMapInfo{};
         cubeMapInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -1288,6 +1334,32 @@ void Renderer::CreatePerPassDescriptor()
         descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         descriptorWrites[1].descriptorCount = 1;
         descriptorWrites[1].pImageInfo = &cubeMapInfo;
+
+        VkDescriptorBufferInfo directionalLightBufferInfo{};
+        directionalLightBufferInfo.buffer = storageBuffers[i*2].buffer;
+        directionalLightBufferInfo.offset = 0;
+        directionalLightBufferInfo.range = m_DirectionalLights.size() * sizeof(UniformDirectionalLight);
+
+        descriptorWrites[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[2].dstSet = descriptorSets[i];
+        descriptorWrites[2].dstBinding = 2;
+        descriptorWrites[2].dstArrayElement = 0;
+        descriptorWrites[2].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        descriptorWrites[2].descriptorCount = 1;
+        descriptorWrites[2].pBufferInfo = &directionalLightBufferInfo;
+
+        VkDescriptorBufferInfo pointLightBufferInfo{};
+        pointLightBufferInfo.buffer = storageBuffers[i*2+1].buffer;
+        pointLightBufferInfo.offset = 0;
+        pointLightBufferInfo.range = m_PointLights.size() * sizeof(UniformPointLight);
+
+        descriptorWrites[3].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[3].dstSet = descriptorSets[i];
+        descriptorWrites[3].dstBinding = 3;
+        descriptorWrites[3].dstArrayElement = 0;
+        descriptorWrites[3].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        descriptorWrites[3].descriptorCount = 1;
+        descriptorWrites[3].pBufferInfo = &pointLightBufferInfo;
 
         vkUpdateDescriptorSets(m_Device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
     }
@@ -1470,7 +1542,7 @@ void Renderer::CreateGraphicPipeline()
     pipelineDynamicStateCreateInfo.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
     pipelineDynamicStateCreateInfo.pDynamicStates = dynamicStates.data();
     
-    std::array<VkDescriptorSetLayout,3> firstPassLayouts = { m_PerMeshDescriptor.GetDescriptorSetLayout(), m_PerPassDescriptor.GetDescriptorSetLayout(), m_Materials.GetDescriptorSetsLayout()};
+    std::array<VkDescriptorSetLayout,3> firstPassLayouts = {m_PerPassDescriptor.GetDescriptorSetLayout(), m_PerMeshDescriptor.GetDescriptorSetLayout(), m_Materials.GetDescriptorSetsLayout()};
 
     VkPipelineLayoutCreateInfo pipelineLayoutFirstPassCreateInfo;
     pipelineLayoutFirstPassCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -1694,9 +1766,9 @@ void Renderer::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t curre
     VkDeviceSize minSize = properties.limits.minUniformBufferOffsetAlignment;
 
     uint64_t bufferSize = sizeof(glm::mat4);
-    uint64_t paddedSize = minSize - bufferSize + bufferSize;
+    uint64_t paddedSize = (bufferSize + minSize - 1) & ~(minSize - 1);
 
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_GraphicPipelineFirstPassLayout, 1, 1, &perPassDescriptorSet, 0, NULL);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_GraphicPipelineFirstPassLayout, 0, 1, &perPassDescriptorSet, 0, NULL);
 
     for (size_t i = 0; i < m_Meshes.size(); i++)
     {
@@ -1704,7 +1776,7 @@ void Renderer::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t curre
 
         uint32_t offset = static_cast<uint32_t>(i * paddedSize);
 
-        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_GraphicPipelineFirstPassLayout, 0, 1, &perMeshDescriptorSet, 1, &offset);
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_GraphicPipelineFirstPassLayout, 1, 1, &perMeshDescriptorSet, 1, &offset);
         mesh->BindVertexBuffer(commandBuffer);
         mesh->BindIndexBuffer(commandBuffer);
 
@@ -1744,8 +1816,8 @@ void Renderer::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t curre
     imageBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
     imageBarrier.oldLayout = VK_IMAGE_LAYOUT_GENERAL;                   // Layout actuel après le ray tracing
     imageBarrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;  // Layout souhaité pour la render pass
-    imageBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    imageBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    imageBarrier.srcQueueFamilyIndex = m_QueueFamilyIndices.graphicsFamily.value();
+    imageBarrier.dstQueueFamilyIndex = m_QueueFamilyIndices.graphicsFamily.value();
     imageBarrier.image = m_SwapChain.GetImages()[currentFrame];  // L'image générée par le ray tracing
     imageBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     imageBarrier.subresourceRange.baseMipLevel = 0;
@@ -1755,6 +1827,8 @@ void Renderer::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t curre
     imageBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;  // Accès en écriture par le ray tracing
     imageBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;   // Accès en lecture pour la subpass
 
+    VkPipelineStageFlagBits stage = *m_RayTracingAccelerationStructure->GetActiveRaytracingPtr() ? VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR : VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+    
     vkCmdPipelineBarrier(
         commandBuffer,
         VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,  // Étape de ray tracing en source
@@ -1946,8 +2020,6 @@ void Renderer::Draw()
         std::cout << "Failed to submit draw command buffer!" << '\n';
     }
 
-    vkQueueWaitIdle(m_GraphicsQueue);
-
     VkPresentInfoKHR presentInfo{};
     presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 
@@ -1987,15 +2059,31 @@ void Renderer::Draw()
 
 void Renderer::UpdateUniform()
 {
-    m_CameraUniform.view = m_Camera->GetView();
-    m_CameraUniform.projection = m_Camera->GetProjection();
-    m_CameraUniform.position = m_Camera->GetPosition();
+    m_SceneUniform.view = m_Camera->GetView();
+    m_SceneUniform.projection = m_Camera->GetProjection();
+    m_SceneUniform.position = m_Camera->GetPosition();
+    m_SceneUniform.numDirectionalLights = static_cast<int>(m_DirectionalLights.size());
+    m_SceneUniform.numPointLights = static_cast<int>(m_PointLights.size());
 
-    auto uniformAllocInfo = m_PerPassDescriptor.GetUniformAllocationInfos()[m_CurrentFrame];
+    memcpy(m_PerPassDescriptor.GetUniformAllocationInfos()[m_CurrentFrame].pMappedData, &m_SceneUniform, sizeof(SceneUniform));
 
-    m_RayTracingAccelerationStructure->UpdateUniform(glm::inverse(m_Camera->GetView()), glm::inverse(m_Camera->GetProjection()), m_CurrentFrame, m_Meshes);
+    std::vector<VmaAllocationInfo> lightsAllocationInfos;
+    m_PerPassDescriptor.GetUniformStorageBufferAllocationInfos(lightsAllocationInfos);
 
-    memcpy(uniformAllocInfo.pMappedData, &m_CameraUniform, sizeof(m_CameraUniform));
+    std::vector<UniformDirectionalLight> uniformDirectionalLights;
+    uniformDirectionalLights.reserve(m_DirectionalLights.size());
+    for (DirectionalLight& directionalLight : m_DirectionalLights)
+        uniformDirectionalLights.emplace_back(directionalLight.GetUniformDirectionalLight());
+    memcpy(lightsAllocationInfos[static_cast<size_t>(2) * m_CurrentFrame].pMappedData, uniformDirectionalLights.data(), sizeof(UniformDirectionalLight) * m_DirectionalLights.size());
+
+    std::vector<UniformPointLight> uniformPointLights;
+    uniformPointLights.reserve(m_PointLights.size());
+    for (PointLight& pointLight : m_PointLights)
+        uniformPointLights.emplace_back(pointLight.GetUniformPointLight());
+    memcpy(lightsAllocationInfos[static_cast<size_t>(2) * m_CurrentFrame + 1].pMappedData, uniformPointLights.data(), sizeof(UniformPointLight) * m_PointLights.size());
+
+    if (*m_RayTracingAccelerationStructure->GetActiveRaytracingPtr())
+        m_RayTracingAccelerationStructure->UpdateUniform(glm::inverse(m_Camera->GetView()), glm::inverse(m_Camera->GetProjection()), m_CurrentFrame, m_Meshes);
 
     if (!m_Meshes.empty())
     {
@@ -2004,15 +2092,15 @@ void Renderer::UpdateUniform()
         vkGetPhysicalDeviceProperties(m_PhysicalDevice, &properties);
         VkDeviceSize minSize = properties.limits.minUniformBufferOffsetAlignment;
 
-        uint64_t paddedSize = minSize;
-
-        uniformAllocInfo = m_PerMeshDescriptor.GetUniformAllocationInfos()[m_CurrentFrame];
+        uint64_t paddedSize = (sizeof(glm::mat4) + minSize - 1) & ~(minSize - 1);;
 
         char* modelsData = static_cast<char*>(malloc(m_Meshes.size() * paddedSize));
 
         m_Meshes[0]->SetModel(glm::rotate(m_Meshes[0]->GetModel(), glm::radians<float>(static_cast<float>(m_DeltaTime) * 32.36f), glm::vec3(0., 1., 0.)));
 
-        m_RayTracingAccelerationStructure->UpdateTransform(m_Device, m_Allocator, m_ComputeQueue, m_ComputePool, 0, m_Meshes[0]->GetModel());
+        m_Meshes.back()->SetModel(glm::rotate(m_Meshes.back()->GetModel(), glm::radians<float>(static_cast<float>(m_DeltaTime) * 32.36f), glm::vec3(0., 1., 0.)));
+        
+        //m_RayTracingAccelerationStructure->UpdateTransform(m_Device, m_Allocator, m_ComputeQueue, m_ComputePool, 0, m_Meshes[0]->GetModel());
 
         for (size_t i = 0; i < m_Meshes.size(); i++)
         {
@@ -2021,10 +2109,10 @@ void Renderer::UpdateUniform()
             memcpy(p, &(m_Meshes[i]->GetModel()), bufferSize);
         }
 
-        memcpy(uniformAllocInfo.pMappedData, modelsData, m_Meshes.size() * paddedSize);
+        memcpy(m_PerMeshDescriptor.GetUniformAllocationInfos()[m_CurrentFrame].pMappedData, modelsData, m_Meshes.size() * paddedSize);
 
         free(modelsData);
-    }  
+    }
 }
 
 Camera* Renderer::GetCamera() const

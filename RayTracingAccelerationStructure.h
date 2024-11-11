@@ -34,9 +34,9 @@ struct ShaderBindingTable {
     VkDeviceAddress deviceAddress;
 };
 
-struct UniformData {
-    glm::mat4 viewInverse;
-    glm::mat4 projInverse;
+struct alignas(16) UniformData {
+    alignas(16) glm::mat4 viewInverse;
+    alignas(16) glm::mat4 projInverse;
 };
 
 class RayTracingAccelerationStructure

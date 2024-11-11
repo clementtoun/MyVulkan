@@ -22,6 +22,8 @@
 #include <chrono>
 #include <map>
 
+#include "Light.h"
+
 constexpr VkClearColorValue clearColor = { { 0.13f, 0.18f, 0.25, 1. } };
 
 const std::string validationLayers = "VK_LAYER_KHRONOS_validation";
@@ -53,13 +55,14 @@ struct VulkanRayTracingFunctions {
 
 #define MAX_FRAMES_IN_FLIGHT 3
 
-typedef struct s_CameraUniform
+typedef struct alignas(16) s_SceneUniform
 {
-	glm::mat4 view;          
-	glm::mat4 projection;    
-	glm::vec3 position;      
-	float padding;           
-} CameraUniform;
+	alignas(16) glm::mat4 view;          
+	alignas(16) glm::mat4 projection;
+	alignas(16) glm::vec3 position;
+	alignas(4) int numDirectionalLights;
+	alignas(4) int numPointLights;
+} SceneUniform;
 
 typedef struct s_KeyPress
 {
@@ -145,6 +148,9 @@ private:
 	std::vector<Mesh*> m_Meshes;
 	Materials m_Materials;
 
+	std::vector<PointLight> m_PointLights;
+	std::vector<DirectionalLight> m_DirectionalLights;
+
 	VkInstance m_Instance = VK_NULL_HANDLE;
 	GlfwWindow m_Window;
 	VkSurfaceKHR m_Surface = VK_NULL_HANDLE;
@@ -184,7 +190,7 @@ private:
 	RayTracingAccelerationStructure* m_RayTracingAccelerationStructure;
 
 	Camera* m_Camera;
-	CameraUniform m_CameraUniform;
+	SceneUniform m_SceneUniform;
 
 	std::map<int, KeyPress> m_KeyPressedMap;
 

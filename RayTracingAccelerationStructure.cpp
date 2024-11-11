@@ -59,28 +59,30 @@ void RayTracingAccelerationStructure::CreateBottomLevelASs(VkDevice device, VmaA
 {
     m_BottomLevelASs.reserve(meshes.size());
     
-    for (auto mesh : meshes)
+    for (auto& mesh : meshes)
     {
         AccelerationStructure bottomLevelAS;
         
-        VkAccelerationStructureGeometryKHR accelerationStructureGeometry{};
-        mesh->GetAccelerationStructureGeometry(device, accelerationStructureGeometry);
+        std::vector<VkAccelerationStructureGeometryKHR> accelerationStructureGeometry{};
+        mesh->GetAccelerationStructureGeometrys(device, accelerationStructureGeometry);
 
         VkAccelerationStructureBuildGeometryInfoKHR accelerationStructureBuildGeometryInfo{};
         accelerationStructureBuildGeometryInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
         accelerationStructureBuildGeometryInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
         accelerationStructureBuildGeometryInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
-        accelerationStructureBuildGeometryInfo.geometryCount = 1;
-        accelerationStructureBuildGeometryInfo.pGeometries = &accelerationStructureGeometry;
+        accelerationStructureBuildGeometryInfo.geometryCount = static_cast<uint32_t>(accelerationStructureGeometry.size());
+        accelerationStructureBuildGeometryInfo.pGeometries = accelerationStructureGeometry.data();
 
-        const uint32_t numTriangles = static_cast<uint32_t>(mesh->GetIndexes().size() / 3);
+        std::vector<uint32_t> primitivesTrianglesCounts;
+        mesh->GetPrimitvesTrianglesCounts(primitivesTrianglesCounts);
+        
         VkAccelerationStructureBuildSizesInfoKHR accelerationStructureBuildSizesInfo{};
         accelerationStructureBuildSizesInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR;
         vkGetAccelerationStructureBuildSizesKHR(
             device,
             VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
             &accelerationStructureBuildGeometryInfo,
-            &numTriangles,
+            primitivesTrianglesCounts.data(),
             &accelerationStructureBuildSizesInfo);
 
         CreateAccelerationStructureBuffer(device, vmaAllocator, bottomLevelAS, accelerationStructureBuildSizesInfo);
@@ -97,28 +99,22 @@ void RayTracingAccelerationStructure::CreateBottomLevelASs(VkDevice device, VmaA
         }
 
         RayTracingScratchBuffer scratchBuffer = CreateScratchBuffer(device, vmaAllocator, accelerationStructureBuildSizesInfo.buildScratchSize);
-
-        accelerationStructureBuildGeometryInfo = {};
-        accelerationStructureBuildGeometryInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
-        accelerationStructureBuildGeometryInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
-        accelerationStructureBuildGeometryInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
-        accelerationStructureBuildGeometryInfo.geometryCount = 1;
-        accelerationStructureBuildGeometryInfo.pGeometries = &accelerationStructureGeometry;
+        
         accelerationStructureBuildGeometryInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
         accelerationStructureBuildGeometryInfo.dstAccelerationStructure = bottomLevelAS.handle;
         accelerationStructureBuildGeometryInfo.scratchData.deviceAddress = scratchBuffer.deviceAddress;
 
-        VkAccelerationStructureBuildRangeInfoKHR rangeInfo = {};
-        rangeInfo.primitiveCount = numTriangles;
-        rangeInfo.primitiveOffset = 0;
-        rangeInfo.firstVertex = 0;
-        rangeInfo.transformOffset = 0;
+        std::vector<VkAccelerationStructureBuildRangeInfoKHR> accelerationStructureRangeInfos;
+        mesh->GetAccelerationStructureRangeInfos(accelerationStructureRangeInfos);
+        
+        std::vector<VkAccelerationStructureBuildRangeInfoKHR*> accelerationStructureRangeInfosPtr;
+        accelerationStructureRangeInfosPtr.reserve(accelerationStructureRangeInfos.size());
+        for (uint32_t i = 0; i < accelerationStructureRangeInfos.size(); i++)
+            accelerationStructureRangeInfosPtr.emplace_back(&accelerationStructureRangeInfos[i]);
 
         VkCommandBuffer commandBuffer = VulkanUtils::BeginSingleTimeCommands(device, computePool);
-
-        auto* pRangeInfo = &rangeInfo;
     
-        vkCmdBuildAccelerationStructuresKHR(commandBuffer, 1, &accelerationStructureBuildGeometryInfo, &pRangeInfo);
+        vkCmdBuildAccelerationStructuresKHR(commandBuffer, 1, &accelerationStructureBuildGeometryInfo, accelerationStructureRangeInfosPtr.data());
 
         VulkanUtils::EndSingleTimeCommands(device, computePool, computeQueue, commandBuffer);
 

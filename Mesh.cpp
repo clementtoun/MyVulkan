@@ -183,7 +183,7 @@ void Mesh::BindIndexBuffer(VkCommandBuffer commandBuffer)
 	vkCmdBindIndexBuffer(commandBuffer, m_IndexBuffer, 0, VK_INDEX_TYPE_UINT32);
 }
 
-bool Mesh::GetAccelerationStructureGeometry(VkDevice device, VkAccelerationStructureGeometryKHR& accelerationStructureGeometry)
+bool Mesh::GetAccelerationStructureGeometrys(VkDevice device, std::vector<VkAccelerationStructureGeometryKHR>& accelerationStructureGeometrys)
 {
 	VkBufferDeviceAddressInfo deviceAddressInfo;
 	deviceAddressInfo.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
@@ -200,21 +200,52 @@ bool Mesh::GetAccelerationStructureGeometry(VkDevice device, VkAccelerationStruc
 		std::cout << "Failed to get vertexBufferDeviceAddress or indexBufferDeviceAddress ! " << "\n";
 		return false;
 	}
+
+	accelerationStructureGeometrys.reserve(m_Primitves.size());
 	
-	accelerationStructureGeometry = {};
-	accelerationStructureGeometry.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
-	accelerationStructureGeometry.pNext = NULL;
-	accelerationStructureGeometry.flags = VK_GEOMETRY_OPAQUE_BIT_KHR;
-	accelerationStructureGeometry.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR;
-	accelerationStructureGeometry.geometry.triangles.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR;
-	accelerationStructureGeometry.geometry.triangles.vertexData.deviceAddress = vertexDeviceAddress;
-	accelerationStructureGeometry.geometry.triangles.indexData.deviceAddress = indexDeviceAddress;
-	accelerationStructureGeometry.geometry.triangles.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT;
-	accelerationStructureGeometry.geometry.triangles.maxVertex = static_cast<uint32_t>(m_Vertexs.size()) - 1;
-	accelerationStructureGeometry.geometry.triangles.vertexStride = sizeof(Vertex);
-	accelerationStructureGeometry.geometry.triangles.indexType = VK_INDEX_TYPE_UINT32;
+	for(Primitive& primitive : m_Primitves)
+	{
+		VkAccelerationStructureGeometryKHR accelerationStructureGeometry = {};
+		accelerationStructureGeometry.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
+		accelerationStructureGeometry.pNext = NULL;
+		accelerationStructureGeometry.flags = VK_GEOMETRY_OPAQUE_BIT_KHR;
+		accelerationStructureGeometry.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR;
+		accelerationStructureGeometry.geometry.triangles.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR;
+		accelerationStructureGeometry.geometry.triangles.vertexData.deviceAddress = vertexDeviceAddress;
+		accelerationStructureGeometry.geometry.triangles.indexData.deviceAddress = indexDeviceAddress;
+		accelerationStructureGeometry.geometry.triangles.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT;
+		accelerationStructureGeometry.geometry.triangles.maxVertex = primitive.vertexCount - 1;
+		accelerationStructureGeometry.geometry.triangles.vertexStride = sizeof(Vertex);
+		accelerationStructureGeometry.geometry.triangles.indexType = VK_INDEX_TYPE_UINT32;
+
+		accelerationStructureGeometrys.emplace_back(accelerationStructureGeometry);
+	}
 
 	return true;
+}
+
+void Mesh::GetAccelerationStructureRangeInfos(std::vector<VkAccelerationStructureBuildRangeInfoKHR>& accelerationStructureRangeInfos)
+{
+	accelerationStructureRangeInfos.reserve(m_Primitves.size());
+	
+	for(int i = 0; i < m_Primitves.size(); i++)
+	{
+		VkAccelerationStructureBuildRangeInfoKHR rangeInfo = {};
+		rangeInfo.primitiveCount = m_Primitves[i].indexCount / 3;
+		rangeInfo.primitiveOffset = m_Primitves[i].firstIndex * sizeof(uint32_t);
+		rangeInfo.firstVertex = m_Primitves[i].vertexOffset;
+		rangeInfo.transformOffset = 0;
+
+		accelerationStructureRangeInfos.emplace_back(rangeInfo);
+	}
+}
+
+void Mesh::GetPrimitvesTrianglesCounts(std::vector<uint32_t>& primitivesTrianglesCounts)
+{
+	primitivesTrianglesCounts.reserve(m_Primitves.size());
+
+	for(Primitive& primitive : m_Primitves)
+		primitivesTrianglesCounts.emplace_back(primitive.indexCount / 3);
 }
 
 const glm::mat4& Mesh::GetModel()

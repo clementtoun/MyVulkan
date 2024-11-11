@@ -195,6 +195,11 @@ void Materials::BindMaterial(size_t index, VkCommandBuffer commandBuffer, VkPipe
 	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 2, 1, &m_PerMaterialDescriptor.GetDescriptorSets()[index], 0, NULL);
 }
 
+std::vector<Material>& Materials::GetMaterials()
+{
+	return m_Materials;
+}
+
 void Materials::Cleanup(VmaAllocator allocator, VkDevice device)
 {
 	m_PerMaterialDescriptor.DestroyDescriptorPool(device);

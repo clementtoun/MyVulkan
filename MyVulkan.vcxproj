@@ -150,6 +150,7 @@
     <ClCompile Include="Libs\include\imgui\imgui_stdlib.cpp" />
     <ClCompile Include="Libs\include\imgui\imgui_tables.cpp" />
     <ClCompile Include="Libs\include\imgui\imgui_widgets.cpp" />
+    <ClCompile Include="Light.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Materials.cpp" />
     <ClCompile Include="Mesh.cpp" />
@@ -510,6 +511,7 @@
     <ClInclude Include="Libs\include\vulkan\vulkan_xcb.h" />
     <ClInclude Include="Libs\include\vulkan\vulkan_xlib.h" />
     <ClInclude Include="Libs\include\vulkan\vulkan_xlib_xrandr.h" />
+    <ClInclude Include="Light.h" />
     <ClInclude Include="Materials.h" />
     <ClInclude Include="Mesh.h" />
     <ClInclude Include="MeshLoader.h" />
