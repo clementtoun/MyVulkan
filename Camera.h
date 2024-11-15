@@ -91,6 +91,7 @@ public:
 	TrackBallCamera(glm::vec3 position, glm::vec3 target, glm::vec3 up, double fov, double aspect, double near, double far);
 
 	void Move(Direction direction, float deltaTime) override {};
+	void UpdatePosition(float deltaTime) override {};
 	void ProcessMouseMouve(double x, double y) override;
 	void ProcessScroll(double xoffset, double yoffset) override;
 

@@ -2099,8 +2099,9 @@ void Renderer::UpdateUniform()
         m_Meshes[0]->SetModel(glm::rotate(m_Meshes[0]->GetModel(), glm::radians<float>(static_cast<float>(m_DeltaTime) * 32.36f), glm::vec3(0., 1., 0.)));
 
         m_Meshes.back()->SetModel(glm::rotate(m_Meshes.back()->GetModel(), glm::radians<float>(static_cast<float>(m_DeltaTime) * 32.36f), glm::vec3(0., 1., 0.)));
-        
-        //m_RayTracingAccelerationStructure->UpdateTransform(m_Device, m_Allocator, m_ComputeQueue, m_ComputePool, 0, m_Meshes[0]->GetModel());
+
+        if (*m_RayTracingAccelerationStructure->GetActiveRaytracingPtr())
+            m_RayTracingAccelerationStructure->UpdateTransform(m_Device, m_Allocator, m_CurrentFrame, m_ComputeQueue, m_ComputePool, 0, m_Meshes[0]->GetModel());
 
         for (size_t i = 0; i < m_Meshes.size(); i++)
         {

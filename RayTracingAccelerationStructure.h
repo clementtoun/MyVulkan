@@ -49,7 +49,7 @@ public:
 
     void UpdateUniform(const glm::mat4& viewInverse, const glm::mat4& projInverse, uint32_t imageIndex, const std::vector<Mesh*>& meshes);
 
-    void UpdateTransform(VkDevice device, VmaAllocator vmaAllocator, VkQueue computeQueue, VkCommandPool computePool, uint32_t transformIndex, const glm::mat4& transform);
+    void UpdateTransform(VkDevice device, VmaAllocator vmaAllocator, uint32_t imageIndex, VkQueue computeQueue, VkCommandPool computePool, uint32_t transformIndex, const glm::mat4& transform);
 
     void UpdateImageDescriptor(VkDevice device, const std::vector<VkImageView>& imageViews);
 
@@ -61,7 +61,7 @@ private:
 
     void CreateBottomLevelASs(VkDevice device, VmaAllocator vmaAllocator, VkQueue computeQueue, VkCommandPool computePool, const std::vector<Mesh*>& meshes);
 
-    void CreateTopLevelAS(VkDevice device, VmaAllocator vmaAllocator, VkQueue computeQueue, VkCommandPool computePool, const std::vector<Mesh*>& meshes);
+    void CreateTopLevelAS(VkDevice device, VmaAllocator vmaAllocator, VkQueue computeQueue, VkCommandPool computePool, const std::vector<Mesh*>& meshes, int count = 1);
 
     void CreateAccelerationStructureBuffer(VkDevice device, VmaAllocator allocator, AccelerationStructure &accelerationStructure, VkAccelerationStructureBuildSizesInfoKHR buildSizeInfo);
 
@@ -82,9 +82,9 @@ private:
     VkPhysicalDeviceRayTracingPipelinePropertiesKHR  m_RayTracingPipelineProperties;
     
     std::vector<AccelerationStructure> m_BottomLevelASs{};
-    AccelerationStructure m_TopLevelAS{};
-
-    InstanceBuffer m_InstanceBuffer;
+    std::vector<AccelerationStructure> m_TopLevelAS{};
+    std::vector<InstanceBuffer> m_InstanceBuffer;
+    
     Descriptor m_TopLevelASDescriptor;
 
     std::vector<VkRayTracingShaderGroupCreateInfoKHR> m_ShaderGroups{};
