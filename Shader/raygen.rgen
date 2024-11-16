@@ -122,28 +122,31 @@ void main()
 			UniformDirectionalLight directionalLight = directionalLightBuffer.lights[i];
 
 			vec3 L = normalize(-directionalLight.Direction);
-
-			float tmin = 0.001;
-			float tmax = 10000.0;
+			float NL = max(0., dot(N, L));
 			
-			hitValue = false;
-
-			traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT, 0xff, 0, 0, 0, FragPos, tmin, L, tmax, 0);
-
-			if (!hitValue)
+			if (NL > 0.)
 			{
-				vec3 H = normalize(V + L);
+				float tmin = 1e-3;
+				float tmax = 10000.0;
+				
+				hitValue = false;
 
-				float NH = max(0., dot(N, H));
-				float NL = max(0., dot(N, L));
-				float VH = max(0., dot(V, H));
+				traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT, 0xff, 0, 0, 0, FragPos, tmin, L, tmax, 0);
 
-				vec3 F = FUnreal(VH, F0);
+				if (!hitValue)
+				{
+					vec3 H = normalize(V + L);
 
-				vec3 fSpec = vec3(D(NH, alpha) * GGX(NL, NV, Roughness) / (4. * NL * NV + MIN_FLT));
-				vec3 BRDF = mix(fDiff, fSpec, F);
+					float NH = max(0., dot(N, H));
+					float VH = max(0., dot(V, H));
 
-				color += BRDF * directionalLight.Color * NL;
+					vec3 F = FUnreal(VH, F0);
+
+					vec3 fSpec = vec3(D(NH, alpha) * GGX(NL, NV, Roughness) / (4. * NL * NV + MIN_FLT));
+					vec3 BRDF = mix(fDiff, fSpec, F);
+
+					color += BRDF * directionalLight.Color * NL;
+				}
 			}
 		}
 
@@ -152,28 +155,31 @@ void main()
 			UniformPointLight pointLight = pointLightBuffer.lights[i];
 
 			vec3 L = normalize(pointLight.Position - FragPos);
+			float NL = max(0., dot(N, L));
 
-			float tmin = 0.001;
-			float tmax = length(pointLight.Position - FragPos);
-			
-			hitValue = false;
-
-			traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT, 0xff, 0, 0, 0, FragPos, tmin, L, tmax, 0);
-
-			if (!hitValue)
+			if (NL > 0.)
 			{
-				vec3 H = normalize(V + L);
+				float tmin = 1e-3;
+				float tmax = length(pointLight.Position - FragPos);
 
-				float NH = max(0., dot(N, H));
-				float NL = max(0., dot(N, L));
-				float VH = max(0., dot(V, H));
+				hitValue = false;
 
-				vec3 F = FUnreal(VH, F0);
+				traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT, 0xff, 0, 0, 0, FragPos, tmin, L, tmax, 0);
 
-				vec3 fSpec = vec3(D(NH, alpha) * GGX(NL, NV, Roughness) / (4. * NL * NV + MIN_FLT));
-				vec3 BRDF = mix(fDiff, fSpec, F);
+				if (!hitValue)
+				{
+					vec3 H = normalize(V + L);
 
-				color += BRDF * pointLight.Color * NL;
+					float NH = max(0., dot(N, H));
+					float VH = max(0., dot(V, H));
+
+					vec3 F = FUnreal(VH, F0);
+
+					vec3 fSpec = vec3(D(NH, alpha) * GGX(NL, NV, Roughness) / (4. * NL * NV + MIN_FLT));
+					vec3 BRDF = mix(fDiff, fSpec, F);
+
+					color += BRDF * pointLight.Color * NL;
+				}
 			}
 		}
 

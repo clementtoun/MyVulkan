@@ -216,7 +216,7 @@ Renderer::Renderer(const std::string& ApplicationName, uint32_t ApplicationVersi
     }
     meshes.clear();
 
-    m_DirectionalLights.emplace_back(glm::vec3(-0.5f, -1.f, 0.25f), glm::vec3(1.), 1.f);
+    m_DirectionalLights.emplace_back(glm::vec3(-0.1f, -1.f, 0.1f), glm::vec3(1.), 1.f);
 
     CreateQuadMesh();
 
@@ -853,10 +853,6 @@ void Renderer::CreateRenderPass()
     finalAttachmentReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
     m_FinalRenderPass.addSubPass(VK_PIPELINE_BIND_POINT_GRAPHICS, {}, { finalAttachmentReference }, {}, {}, {});
-
-    m_FinalRenderPass.addSubPassDependency(VK_SUBPASS_EXTERNAL, 0, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_INPUT_ATTACHMENT_READ_BIT, VK_DEPENDENCY_BY_REGION_BIT);
-
-    m_FinalRenderPass.addSubPassDependency(0, VK_SUBPASS_EXTERNAL, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_SHADER_WRITE_BIT, VK_DEPENDENCY_BY_REGION_BIT);
 
     m_FinalRenderPass.CreateRenderPass(m_Device, { finalAttachmentDescription });
 }
@@ -1991,8 +1987,6 @@ void Renderer::Draw()
 
         ImGui::Checkbox("Wireframe", &m_Wireframe);
 
-        //ImGui::Checkbox("RayTracing", m_RayTracingAccelerationStructure->GetActiveRaytracingPtr());
-
         ImGui::SliderFloat("CameraSpeed", m_Camera->GetSpeed(), 0., 100.);
 
         ImGui::End();
@@ -2122,8 +2116,7 @@ void Renderer::UpdateUniform()
     for (PointLight& pointLight : m_PointLights)
         uniformPointLights.emplace_back(pointLight.GetUniformPointLight());
     memcpy(lightsAllocationInfos[static_cast<size_t>(2) * m_CurrentFrame + 1].pMappedData, uniformPointLights.data(), sizeof(UniformPointLight) * m_PointLights.size());
-
-    //if (*m_RayTracingAccelerationStructure->GetActiveRaytracingPtr())
+    
     m_RayTracingAccelerationStructure->UpdateUniform(glm::inverse(m_Camera->GetView()), glm::inverse(m_Camera->GetProjection()), m_CurrentFrame, m_Meshes);
 
     if (!m_Meshes.empty())
@@ -2140,13 +2133,10 @@ void Renderer::UpdateUniform()
         m_Meshes[0]->SetModel(glm::rotate(m_Meshes[0]->GetModel(), glm::radians<float>(static_cast<float>(m_DeltaTime) * 32.36f), glm::vec3(0., 1., 0.)));
 
         m_Meshes.back()->SetModel(glm::rotate(m_Meshes.back()->GetModel(), glm::radians<float>(static_cast<float>(m_DeltaTime) * 32.36f), glm::vec3(0., 1., 0.)));
-
-        if (*m_RayTracingAccelerationStructure->GetActiveRaytracingPtr())
-        {
-            std::vector<glm::mat4> transforms = { m_Meshes[0]->GetModel(), m_Meshes.back()->GetModel() };
-            std::vector<uint32_t> transformIndexs = { 0, static_cast<uint32_t>(m_Meshes.size() - 1) };
-            m_RayTracingAccelerationStructure->UpdateTransform(m_CurrentFrame, transformIndexs, transforms);
-        }
+        
+        std::vector<glm::mat4> transforms = { m_Meshes[0]->GetModel(), m_Meshes.back()->GetModel() };
+        std::vector<uint32_t> transformIndexs = { 0, static_cast<uint32_t>(m_Meshes.size() - 1) };
+        m_RayTracingAccelerationStructure->UpdateTransform(m_CurrentFrame, transformIndexs, transforms);
 
         for (size_t i = 0; i < m_Meshes.size(); i++)
         {
