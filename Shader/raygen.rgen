@@ -96,7 +96,7 @@ void main()
 	{
 		vec3 FragPos = texture(GBuffer[0], inUV).xyz;
 
-		vec3 N = Nw.xyz;
+		vec3 N = normalize(Nw.xyz);
 		vec3 V = normalize(camPosition - FragPos);
 
 		float opacity = BaseColor.a;

@@ -11,7 +11,6 @@ void GBuffer::BuildGBuffer(uint8_t nbImages, uint32_t width, uint32_t height, Vm
 		m_GBufferImages[i].positionImageBuffer.CreateImage(allocator, width, height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, families);
 		m_GBufferImages[i].positionImageBuffer.CreateImageView(device, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT);
 		
-
 		m_GBufferImages[i].normalImageBuffer.CreateImage(allocator, width, height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, families);
 		m_GBufferImages[i].normalImageBuffer.CreateImageView(device, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT);
 

@@ -204,6 +204,18 @@ Renderer::Renderer(const std::string& ApplicationName, uint32_t ApplicationVersi
     }
     meshes.clear();
 
+    meshes = MeshLoader::loadGltf("./Models/GLTF/Plane/TwoSidedPlane.gltf", m_Materials);
+    for (auto mesh : meshes)
+    {
+        mesh->CreateVertexBuffers(m_Allocator, m_Device, m_TransferPool, m_TranferQueue, m_QueueFamilyIndices.transferFamily.value(), m_QueueFamilyIndices.graphicsFamily.value());
+        mesh->CreateIndexBuffers(m_Allocator, m_Device, m_TransferPool, m_TranferQueue, m_QueueFamilyIndices.transferFamily.value(), m_QueueFamilyIndices.graphicsFamily.value());
+        glm::mat4 model = glm::translate(glm::mat4(1.f), glm::vec3(0.f, -7.f, 0.f));
+        model = glm::scale(model, glm::vec3(50.f));
+        mesh->SetModel(model);
+        m_Meshes.push_back(mesh);
+    }
+    meshes.clear();
+
     meshes = MeshLoader::loadGltf("./Models/GLTF/BoomBox_Axis/BoomBoxWithAxes.gltf", m_Materials);
 
     for (auto mesh : meshes)
@@ -242,7 +254,7 @@ Renderer::Renderer(const std::string& ApplicationName, uint32_t ApplicationVersi
 
     m_RayTracingAccelerationStructure = new RayTracingAccelerationStructure(m_Device, m_PhysicalDevice, m_Allocator, m_ComputeQueue, m_ComputePool, m_Meshes, m_SwapChain.GetImageViews(), {m_GBufferDescriptor.GetDescriptorSetLayout(), m_PerPassDescriptor.GetDescriptorSetLayout()}); 
 
-    m_Camera = new QuaternionCamera(glm::vec3(0., 1., 5.), glm::vec3(0., 0., 0.), glm::vec3(0., 1., 0.), 77., extent.width / static_cast<double>(extent.height), 0.5, 1000000.);
+    m_Camera = new QuaternionCamera(glm::vec3(0., 1., 5.), glm::vec3(0., 0., 0.), glm::vec3(0., 1., 0.), 77., extent.width / static_cast<double>(extent.height),  1e-3, 100000.0);
     m_Camera->SetSpeed(15.);
     m_Camera->SetMouseSensibility(5.);
 
