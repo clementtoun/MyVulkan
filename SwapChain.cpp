@@ -93,7 +93,7 @@ void SwapChain::BuildSwapChain(VkPhysicalDevice physicalDevice, VmaAllocator all
     m_RTImages.resize(MAX_FRAMES_IN_FLIGHT);
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        m_RTImages[i].CreateImage(allocator, extent.width, extent.height, surfaceFormat.format, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, { queueFamilyIndices.graphicsFamily.value()});
+        m_RTImages[i].CreateImage(allocator, extent.width, extent.height, surfaceFormat.format, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, { queueFamilyIndices.graphicsFamily.value()});
         m_RTImages[i].CreateImageView(device, surfaceFormat.format, VK_IMAGE_ASPECT_COLOR_BIT);
     }
 }
@@ -122,13 +122,13 @@ void SwapChain::CreateFramebuffer(VkDevice device, VkRenderPass renderPass, VkRe
 
     for (int i = 0; i < m_Framebuffers.size(); i++)
     {
-        std::array<VkImageView, 7> attachments = { 
+        std::array<VkImageView, 6> attachments = { 
             GBufferImages[i].positionImageBuffer.GetImageView(),  
             GBufferImages[i].normalImageBuffer.GetImageView(),
             GBufferImages[i].colorImageBuffer.GetImageView(),
             GBufferImages[i].pbrImageBuffer.GetImageView(),
             GBufferImages[i].emissiveImageBuffer.GetImageView(),
-            depthAttachment, m_RTImages[i].GetImageView()};
+            depthAttachment};
 
         VkFramebufferCreateInfo framebufferCreateInfo;
         framebufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;

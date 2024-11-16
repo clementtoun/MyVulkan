@@ -128,7 +128,10 @@ Renderer::Renderer(const std::string& ApplicationName, uint32_t ApplicationVersi
         m_Meshes.push_back(mesh);
     }
     meshes.clear();
+
     
+    auto ptColor = glm::vec3(1.f, 0.7f, 0.161f);
+    /*
     meshes = MeshLoader::loadGltf("./Models/GLTF/Cube/glTF/Cube.gltf", m_Materials);
 
     for (auto mesh : meshes)
@@ -140,6 +143,8 @@ Renderer::Renderer(const std::string& ApplicationName, uint32_t ApplicationVersi
     }
     meshes.clear();
 
+    auto ptColor = glm::vec3(1.f, 0.7f, 0.161f);
+
     auto& cubeMat = m_Materials.GetMaterials()[m_Materials.GetMaterials().size() - 1];
     cubeMat.emissiveTexturePath = "";
     cubeMat.normalTexturePath = "";
@@ -148,8 +153,9 @@ Renderer::Renderer(const std::string& ApplicationName, uint32_t ApplicationVersi
     cubeMat.materialUniformBuffer.baseColor = glm::vec3(0.);
     cubeMat.materialUniformBuffer.metallic = 0.;
     cubeMat.materialUniformBuffer.roughness = 0.;
-    cubeMat.materialUniformBuffer.emissiveColor = glm::vec3(1.f, 0.7f, 0.161f);
-    m_PointLights.emplace_back(glm::vec3(5., 5., 5.), glm::vec3(1.f, 0.7f, 0.161f), 1.f);
+    cubeMat.materialUniformBuffer.emissiveColor = ptColor;
+    */
+    m_PointLights.emplace_back(glm::vec3(5., 5., 5.), ptColor, 1.f);
 
     std::array<std::string, 6> cubemapFacePaths;
     cubemapFacePaths[0] = "./Textures/skybox/right.jpg";
@@ -210,7 +216,7 @@ Renderer::Renderer(const std::string& ApplicationName, uint32_t ApplicationVersi
     }
     meshes.clear();
 
-    m_DirectionalLights.emplace_back(glm::vec3(-0.5f, -1.f, 0.25f), glm::vec3(1.f), 1.f);
+    m_DirectionalLights.emplace_back(glm::vec3(-0.5f, -1.f, 0.25f), glm::vec3(1.), 1.f);
 
     CreateQuadMesh();
 
@@ -234,7 +240,7 @@ Renderer::Renderer(const std::string& ApplicationName, uint32_t ApplicationVersi
 
     std::cout << "Graphic index: " << m_QueueFamilyIndices.graphicsFamily.value() << " Compute index: " << m_QueueFamilyIndices.computeFamily.value() << " Transfert index: " << m_QueueFamilyIndices.transferFamily.value() << "\n";
 
-    m_RayTracingAccelerationStructure = new RayTracingAccelerationStructure(m_Device, m_PhysicalDevice, m_Allocator, m_ComputeQueue, m_ComputePool, m_Meshes, m_SwapChain.GetImageViews());
+    m_RayTracingAccelerationStructure = new RayTracingAccelerationStructure(m_Device, m_PhysicalDevice, m_Allocator, m_ComputeQueue, m_ComputePool, m_Meshes, m_SwapChain.GetImageViews(), {m_GBufferDescriptor.GetDescriptorSetLayout(), m_PerPassDescriptor.GetDescriptorSetLayout()}); 
 
     m_Camera = new QuaternionCamera(glm::vec3(0., 1., 5.), glm::vec3(0., 0., 0.), glm::vec3(0., 1., 0.), 77., extent.width / static_cast<double>(extent.height), 0.5, 1000000.);
     m_Camera->SetSpeed(15.);
@@ -692,55 +698,55 @@ void Renderer::CreateRenderPass()
     posAttachmentDescription.format = VK_FORMAT_R32G32B32A32_SFLOAT;
     posAttachmentDescription.samples = VK_SAMPLE_COUNT_1_BIT;
     posAttachmentDescription.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    posAttachmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    posAttachmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
     posAttachmentDescription.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
     posAttachmentDescription.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     posAttachmentDescription.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    posAttachmentDescription.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    posAttachmentDescription.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     VkAttachmentDescription normalAttachmentDescription;
     normalAttachmentDescription.flags = 0;
     normalAttachmentDescription.format = VK_FORMAT_R32G32B32A32_SFLOAT;
     normalAttachmentDescription.samples = VK_SAMPLE_COUNT_1_BIT;
     normalAttachmentDescription.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    normalAttachmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    normalAttachmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
     normalAttachmentDescription.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
     normalAttachmentDescription.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     normalAttachmentDescription.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    normalAttachmentDescription.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    normalAttachmentDescription.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     VkAttachmentDescription colorAttachmentDescription;
     colorAttachmentDescription.flags = 0;
     colorAttachmentDescription.format = VK_FORMAT_R8G8B8A8_UNORM;
     colorAttachmentDescription.samples = VK_SAMPLE_COUNT_1_BIT;
     colorAttachmentDescription.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    colorAttachmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    colorAttachmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
     colorAttachmentDescription.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
     colorAttachmentDescription.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     colorAttachmentDescription.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    colorAttachmentDescription.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    colorAttachmentDescription.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     VkAttachmentDescription pbrAttachmentDescription;
     pbrAttachmentDescription.flags = 0;
     pbrAttachmentDescription.format = VK_FORMAT_R8G8B8A8_UNORM;
     pbrAttachmentDescription.samples = VK_SAMPLE_COUNT_1_BIT;
     pbrAttachmentDescription.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    pbrAttachmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    pbrAttachmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
     pbrAttachmentDescription.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
     pbrAttachmentDescription.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     pbrAttachmentDescription.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    pbrAttachmentDescription.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    pbrAttachmentDescription.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     VkAttachmentDescription emissiveAttachmentDescription;
     emissiveAttachmentDescription.flags = 0;
     emissiveAttachmentDescription.format = VK_FORMAT_R8G8B8A8_UNORM;
     emissiveAttachmentDescription.samples = VK_SAMPLE_COUNT_1_BIT;
     emissiveAttachmentDescription.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    emissiveAttachmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    emissiveAttachmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
     emissiveAttachmentDescription.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
     emissiveAttachmentDescription.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     emissiveAttachmentDescription.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    emissiveAttachmentDescription.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    emissiveAttachmentDescription.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     VkAttachmentDescription depthAttachmentDescription;
     depthAttachmentDescription.flags = 0;
@@ -777,6 +783,7 @@ void Renderer::CreateRenderPass()
     depthAttachmentRef.attachment = 5;
     depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
+    /*
     VkAttachmentDescription attachmentDescription;
     attachmentDescription.flags = 0;
     attachmentDescription.format = m_SwapChain.GetSurfaceFormat();
@@ -791,11 +798,15 @@ void Renderer::CreateRenderPass()
     VkAttachmentReference attachmentReference;
     attachmentReference.attachment = 6;
     attachmentReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    */
 
     m_RenderPass.addSubPass(VK_PIPELINE_BIND_POINT_GRAPHICS, {}, { posGBufferReference, normalGBufferReference, colorGBufferReference, pbrGBufferReference, emissiveGBufferReference }, {}, { depthAttachmentRef }, { } );
 
-    m_RenderPass.addSubPassDependency(VK_SUBPASS_EXTERNAL, 0, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, 0);
+    m_RenderPass.addSubPassDependency(VK_SUBPASS_EXTERNAL, 0, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_DEPENDENCY_BY_REGION_BIT);
 
+    m_RenderPass.addSubPassDependency(0, VK_SUBPASS_EXTERNAL, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT, VK_DEPENDENCY_BY_REGION_BIT);
+
+    /*
     VkAttachmentReference inPosGBufferReference{};
     inPosGBufferReference.attachment = 0;
     inPosGBufferReference.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -821,9 +832,11 @@ void Renderer::CreateRenderPass()
     m_RenderPass.addSubPassDependency(0, 1, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT, VK_DEPENDENCY_BY_REGION_BIT);
 
     m_RenderPass.addSubPassDependency(1, VK_SUBPASS_EXTERNAL, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_MEMORY_READ_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_DEPENDENCY_BY_REGION_BIT);
+*/
 
-    m_RenderPass.CreateRenderPass(m_Device, { posAttachmentDescription, normalAttachmentDescription, colorAttachmentDescription, pbrAttachmentDescription, emissiveAttachmentDescription, depthAttachmentDescription, attachmentDescription });
-
+    
+    m_RenderPass.CreateRenderPass(m_Device, { posAttachmentDescription, normalAttachmentDescription, colorAttachmentDescription, pbrAttachmentDescription, emissiveAttachmentDescription, depthAttachmentDescription }); //, attachmentDescription });
+    
     VkAttachmentDescription finalAttachmentDescription;
     finalAttachmentDescription.flags = 0;
     finalAttachmentDescription.format = m_SwapChain.GetSurfaceFormat();
@@ -841,9 +854,9 @@ void Renderer::CreateRenderPass()
 
     m_FinalRenderPass.addSubPass(VK_PIPELINE_BIND_POINT_GRAPHICS, {}, { finalAttachmentReference }, {}, {}, {});
 
-    m_FinalRenderPass.addSubPassDependency(VK_SUBPASS_EXTERNAL, 0, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_INPUT_ATTACHMENT_READ_BIT, 0);
+    m_FinalRenderPass.addSubPassDependency(VK_SUBPASS_EXTERNAL, 0, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_INPUT_ATTACHMENT_READ_BIT, VK_DEPENDENCY_BY_REGION_BIT);
 
-    m_FinalRenderPass.addSubPassDependency(0, VK_SUBPASS_EXTERNAL, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, 0);
+    m_FinalRenderPass.addSubPassDependency(0, VK_SUBPASS_EXTERNAL, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_SHADER_WRITE_BIT, VK_DEPENDENCY_BY_REGION_BIT);
 
     m_FinalRenderPass.CreateRenderPass(m_Device, { finalAttachmentDescription });
 }
@@ -919,45 +932,47 @@ void Renderer::CreatePerMeshDescriptor()
 void Renderer::CreateGBufferDescriptor()
 {
     std::vector<VkDescriptorSetLayoutBinding> attachmentLayoutBinding;
-    attachmentLayoutBinding.resize(5);
+    attachmentLayoutBinding.resize(1);
 
     attachmentLayoutBinding[0].binding = 0;
-    attachmentLayoutBinding[0].descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
-    attachmentLayoutBinding[0].descriptorCount = 1;
+    attachmentLayoutBinding[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    attachmentLayoutBinding[0].descriptorCount = 5;
     attachmentLayoutBinding[0].pImmutableSamplers = NULL;
-    attachmentLayoutBinding[0].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    attachmentLayoutBinding[0].stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
 
+    /*
     attachmentLayoutBinding[1].binding = 1;
     attachmentLayoutBinding[1].descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
     attachmentLayoutBinding[1].descriptorCount = 1;
     attachmentLayoutBinding[1].pImmutableSamplers = NULL;
-    attachmentLayoutBinding[1].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    attachmentLayoutBinding[1].stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
 
     attachmentLayoutBinding[2].binding = 2;
     attachmentLayoutBinding[2].descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
     attachmentLayoutBinding[2].descriptorCount = 1;
     attachmentLayoutBinding[2].pImmutableSamplers = NULL;
-    attachmentLayoutBinding[2].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    attachmentLayoutBinding[2].stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
 
     attachmentLayoutBinding[3].binding = 3;
     attachmentLayoutBinding[3].descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
     attachmentLayoutBinding[3].descriptorCount = 1;
     attachmentLayoutBinding[3].pImmutableSamplers = NULL;
-    attachmentLayoutBinding[3].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    attachmentLayoutBinding[3].stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
 
     attachmentLayoutBinding[4].binding = 4;
     attachmentLayoutBinding[4].descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
     attachmentLayoutBinding[4].descriptorCount = 1;
     attachmentLayoutBinding[4].pImmutableSamplers = NULL;
-    attachmentLayoutBinding[4].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    attachmentLayoutBinding[4].stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
+    */
 
     auto GBufferImages = m_GBuffer.GetGBufferImages();
 
     m_GBufferDescriptor.CreateDescriptorSetLayout(m_Device, attachmentLayoutBinding, 0);
 
     VkDescriptorPoolSize poolSize;
-    poolSize.type = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
-    poolSize.descriptorCount = static_cast<uint32_t>(GBufferImages.size());
+    poolSize.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    poolSize.descriptorCount = static_cast<uint32_t>(GBufferImages.size()) * 5;
 
     m_GBufferDescriptor.CreateDescriptorPool(m_Device, { poolSize }, static_cast<uint32_t>(GBufferImages.size()));
     
@@ -979,32 +994,32 @@ void Renderer::UpdateGBufferDescriptor()
         VkDescriptorImageInfo posDescriptor{};
         posDescriptor.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         posDescriptor.imageView = GBufferImages[i].positionImageBuffer.GetImageView();
-        posDescriptor.sampler = VK_NULL_HANDLE;
+        posDescriptor.sampler = GBufferImages[i].sampler;
 
         VkDescriptorImageInfo normalDescriptor{};
         normalDescriptor.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         normalDescriptor.imageView = GBufferImages[i].normalImageBuffer.GetImageView();
-        normalDescriptor.sampler = VK_NULL_HANDLE;
+        normalDescriptor.sampler = GBufferImages[i].sampler;
 
         VkDescriptorImageInfo colorDescriptor{};
         colorDescriptor.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         colorDescriptor.imageView = GBufferImages[i].colorImageBuffer.GetImageView();
-        colorDescriptor.sampler = VK_NULL_HANDLE;
+        colorDescriptor.sampler = GBufferImages[i].sampler;
 
         VkDescriptorImageInfo pbrDescriptor{};
         pbrDescriptor.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         pbrDescriptor.imageView = GBufferImages[i].pbrImageBuffer.GetImageView();
-        pbrDescriptor.sampler = VK_NULL_HANDLE;
+        pbrDescriptor.sampler = GBufferImages[i].sampler;
 
         VkDescriptorImageInfo emissiveDescriptor{};
         emissiveDescriptor.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         emissiveDescriptor.imageView = GBufferImages[i].emissiveImageBuffer.GetImageView();
-        emissiveDescriptor.sampler = VK_NULL_HANDLE;
+        emissiveDescriptor.sampler = GBufferImages[i].sampler;
 
         std::array<VkWriteDescriptorSet, 5> descriptorWrites{};
         descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         descriptorWrites[0].dstSet = descriptorSets[i];
-        descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
+        descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         descriptorWrites[0].descriptorCount = 1;
         descriptorWrites[0].dstBinding = 0;
         descriptorWrites[0].dstArrayElement = 0;
@@ -1012,34 +1027,34 @@ void Renderer::UpdateGBufferDescriptor()
 
         descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         descriptorWrites[1].dstSet = descriptorSets[i];
-        descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
+        descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         descriptorWrites[1].descriptorCount = 1;
-        descriptorWrites[1].dstBinding = 1;
-        descriptorWrites[1].dstArrayElement = 0;
+        descriptorWrites[1].dstBinding = 0;
+        descriptorWrites[1].dstArrayElement = 1;
         descriptorWrites[1].pImageInfo = &normalDescriptor;
 
         descriptorWrites[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         descriptorWrites[2].dstSet = descriptorSets[i];
-        descriptorWrites[2].descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
+        descriptorWrites[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         descriptorWrites[2].descriptorCount = 1;
-        descriptorWrites[2].dstBinding = 2;
-        descriptorWrites[2].dstArrayElement = 0;
+        descriptorWrites[2].dstBinding = 0;
+        descriptorWrites[2].dstArrayElement = 2;
         descriptorWrites[2].pImageInfo = &colorDescriptor;
 
         descriptorWrites[3].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         descriptorWrites[3].dstSet = descriptorSets[i];
-        descriptorWrites[3].descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
+        descriptorWrites[3].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         descriptorWrites[3].descriptorCount = 1;
-        descriptorWrites[3].dstBinding = 3;
-        descriptorWrites[3].dstArrayElement = 0;
+        descriptorWrites[3].dstBinding = 0;
+        descriptorWrites[3].dstArrayElement = 3;
         descriptorWrites[3].pImageInfo = &pbrDescriptor;
 
         descriptorWrites[4].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         descriptorWrites[4].dstSet = descriptorSets[i];
-        descriptorWrites[4].descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
+        descriptorWrites[4].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         descriptorWrites[4].descriptorCount = 1;
-        descriptorWrites[4].dstBinding = 4;
-        descriptorWrites[4].dstArrayElement = 0;
+        descriptorWrites[4].dstBinding = 0;
+        descriptorWrites[4].dstArrayElement = 4;
         descriptorWrites[4].pImageInfo = &emissiveDescriptor;
 
         vkUpdateDescriptorSets(m_Device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
@@ -1246,7 +1261,7 @@ void Renderer::CreatePerPassDescriptor()
     descriptorSetLayoutBinding.binding = 0;
     descriptorSetLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     descriptorSetLayoutBinding.descriptorCount = 1;
-    descriptorSetLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    descriptorSetLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_RAYGEN_BIT_KHR;
     descriptorSetLayoutBinding.pImmutableSamplers = NULL;
 
     VkDescriptorSetLayoutBinding descriptorSetCubeMapLayoutBinding{};
@@ -1260,14 +1275,14 @@ void Renderer::CreatePerPassDescriptor()
     descriptorDirectionalLightsLayoutBinding.binding = 2;
     descriptorDirectionalLightsLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     descriptorDirectionalLightsLayoutBinding.descriptorCount = 1;
-    descriptorDirectionalLightsLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    descriptorDirectionalLightsLayoutBinding.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
     descriptorDirectionalLightsLayoutBinding.pImmutableSamplers = NULL;
 
     VkDescriptorSetLayoutBinding descriptorPointLightsLayoutBinding{};
     descriptorPointLightsLayoutBinding.binding = 3;
     descriptorPointLightsLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     descriptorPointLightsLayoutBinding.descriptorCount = 1;
-    descriptorPointLightsLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    descriptorPointLightsLayoutBinding.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
     descriptorPointLightsLayoutBinding.pImmutableSamplers = NULL;
 
     m_PerPassDescriptor.CreateDescriptorSetLayout(m_Device, { descriptorSetLayoutBinding, descriptorSetCubeMapLayoutBinding, descriptorDirectionalLightsLayoutBinding, descriptorPointLightsLayoutBinding }, 0);
@@ -1372,10 +1387,12 @@ void Renderer::CreateGraphicPipeline()
     Shader firstFragmentShader;
     firstFragmentShader.createModule(m_Device, ".\\Shader\\firstFrag.spv");
 
+    /*
     Shader secondVertexShader;
     secondVertexShader.createModule(m_Device, ".\\Shader\\secondVert.spv");
     Shader secondFragmentShader;
     secondFragmentShader.createModule(m_Device, ".\\Shader\\secondFrag.spv");
+    */
 
     VkPipelineShaderStageCreateInfo pipelineFirstVertexShaderStageCreateInfo;
     pipelineFirstVertexShaderStageCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -1397,6 +1414,7 @@ void Renderer::CreateGraphicPipeline()
 
     std::array<VkPipelineShaderStageCreateInfo, 2> firstPipelineShaderStageCreateInfos = { pipelineFirstVertexShaderStageCreateInfo, pipelineFirstFragmentShaderStageCreateInfo };
 
+    /*
     VkPipelineShaderStageCreateInfo pipelineSecondVertexShaderStageCreateInfo;
     pipelineSecondVertexShaderStageCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     pipelineSecondVertexShaderStageCreateInfo.pNext = NULL;
@@ -1416,6 +1434,7 @@ void Renderer::CreateGraphicPipeline()
     pipelineSecondFragmentShaderStageCreateInfo.pSpecializationInfo = NULL;
 
     std::array<VkPipelineShaderStageCreateInfo, 2> secondPipelineShaderStageCreateInfos = { pipelineSecondVertexShaderStageCreateInfo, pipelineSecondFragmentShaderStageCreateInfo };
+    */
 
     auto vertexInputBindingDescription = Vertex::getVertexInputBindingDescription();
     auto vertexInputAttributeDescription = Vertex::getVertexInputAttributeDescription();
@@ -1585,6 +1604,7 @@ void Renderer::CreateGraphicPipeline()
     if (vkCreateGraphicsPipelines(m_Device, VK_NULL_HANDLE, 1, &graphicsPipelineFirstPassCreateInfo, NULL, &m_GraphicPipelineFirstPassLineMode) != VK_SUCCESS)
         std::cout << "Pipeline cration failed !" << '\n';
 
+    /*
     std::array<VkDescriptorSetLayout, 2> secondPassLayouts = { m_PerPassDescriptor.GetDescriptorSetLayout(), m_GBufferDescriptor.GetDescriptorSetLayout() };
 
     VkPipelineLayoutCreateInfo pipelineLayoutSecondPassCreateInfo;
@@ -1624,17 +1644,21 @@ void Renderer::CreateGraphicPipeline()
     graphicsPipelineSecondPassCreateInfo.pDynamicState = &pipelineDynamicStateCreateInfo;
     graphicsPipelineSecondPassCreateInfo.layout = m_GraphicPipelineSecondPassLayout;
     graphicsPipelineSecondPassCreateInfo.renderPass = m_RenderPass.getRenderPass();
-    graphicsPipelineSecondPassCreateInfo.subpass = 1;
+    graphicsPipelineSecondPassCreateInfo.subpass = 0;
     graphicsPipelineSecondPassCreateInfo.basePipelineHandle = VK_NULL_HANDLE;
     graphicsPipelineSecondPassCreateInfo.basePipelineIndex = -1;
 
     if (vkCreateGraphicsPipelines(m_Device, VK_NULL_HANDLE, 1, &graphicsPipelineSecondPassCreateInfo, NULL, &m_GraphicPipelineSecondPass) != VK_SUCCESS)
         std::cout << "Pipeline cration failed !" << '\n';
+        */
 
     firstVertexShader.cleanup(m_Device);
     firstFragmentShader.cleanup(m_Device);
+
+    /*
     secondVertexShader.cleanup(m_Device);
     secondFragmentShader.cleanup(m_Device);
+    */
 }
 
 void Renderer::CreateQuadMesh()
@@ -1788,6 +1812,9 @@ void Renderer::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t curre
         }
     }
 
+    vkCmdEndRenderPass(commandBuffer);
+
+    /*
     vkCmdNextSubpass(commandBuffer, VK_SUBPASS_CONTENTS_INLINE);
 
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_GraphicPipelineSecondPass);
@@ -1797,37 +1824,51 @@ void Renderer::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t curre
     vkCmdDraw(commandBuffer, 6, 1, 0, 0);
 
     vkCmdEndRenderPass(commandBuffer);
+    */
 
-    /*
-    vkCmdPipelineBarrier(
-        commandBuffer,
-        VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,  // SrcStageMask (render pass)
-        VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,   // DstStageMask (ray tracing)
-        0,
-        0, nullptr,
-        0, nullptr,
-        0, nullptr);
-        */
-
-    if (*m_RayTracingAccelerationStructure->GetActiveRaytracingPtr())
-        m_RayTracingAccelerationStructure->RecordCommandBuffer(m_Device, commandBuffer, currentFrame, extent.width, extent.height);
+    VkImageSubresourceRange imageSubresourceRange;
+    imageSubresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    imageSubresourceRange.baseMipLevel = 0;
+    imageSubresourceRange.levelCount = 1;
+    imageSubresourceRange.baseArrayLayer = 0;
+    imageSubresourceRange.layerCount = 1;
 
     VkImageMemoryBarrier imageBarrier = {};
+    imageBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    imageBarrier.oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    imageBarrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;   
+    imageBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT; 
+    imageBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT; 
+    imageBarrier.image = m_SwapChain.GetImages()[currentFrame];
+    imageBarrier.subresourceRange = imageSubresourceRange;
+    
+    vkCmdPipelineBarrier(
+        commandBuffer,
+        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,        
+        VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+        0,                                    
+        0, nullptr,                            
+        0, nullptr,                           
+        1, &imageBarrier               
+    );
+
+    m_RayTracingAccelerationStructure->BindPipeline(commandBuffer);
+    m_RayTracingAccelerationStructure->BindTopLevelASDescriptorSet(commandBuffer, currentFrame);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, m_RayTracingAccelerationStructure->GetRayTracingPipelineLayout(), 1, 1, &GBufferDescriptorSet, 0, NULL);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, m_RayTracingAccelerationStructure->GetRayTracingPipelineLayout(), 2, 1, &perPassDescriptorSet, 0, NULL);
+    
+    m_RayTracingAccelerationStructure->RecordCmdTraceRay(m_Device, m_Allocator, commandBuffer, currentFrame, extent.width, extent.height);
+
+    imageBarrier = {};
     imageBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
     imageBarrier.oldLayout = VK_IMAGE_LAYOUT_GENERAL;                   // Layout actuel après le ray tracing
     imageBarrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;  // Layout souhaité pour la render pass
     imageBarrier.srcQueueFamilyIndex = m_QueueFamilyIndices.graphicsFamily.value();
     imageBarrier.dstQueueFamilyIndex = m_QueueFamilyIndices.graphicsFamily.value();
     imageBarrier.image = m_SwapChain.GetImages()[currentFrame];  // L'image générée par le ray tracing
-    imageBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    imageBarrier.subresourceRange.baseMipLevel = 0;
-    imageBarrier.subresourceRange.levelCount = 1;
-    imageBarrier.subresourceRange.baseArrayLayer = 0;
-    imageBarrier.subresourceRange.layerCount = 1;
+    imageBarrier.subresourceRange = imageSubresourceRange;
     imageBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;  // Accès en écriture par le ray tracing
     imageBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;   // Accès en lecture pour la subpass
-
-    VkPipelineStageFlagBits stage = *m_RayTracingAccelerationStructure->GetActiveRaytracingPtr() ? VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR : VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
     
     vkCmdPipelineBarrier(
         commandBuffer,
@@ -1950,7 +1991,7 @@ void Renderer::Draw()
 
         ImGui::Checkbox("Wireframe", &m_Wireframe);
 
-        ImGui::Checkbox("RayTracing", m_RayTracingAccelerationStructure->GetActiveRaytracingPtr());
+        //ImGui::Checkbox("RayTracing", m_RayTracingAccelerationStructure->GetActiveRaytracingPtr());
 
         ImGui::SliderFloat("CameraSpeed", m_Camera->GetSpeed(), 0., 100.);
 
@@ -2082,8 +2123,8 @@ void Renderer::UpdateUniform()
         uniformPointLights.emplace_back(pointLight.GetUniformPointLight());
     memcpy(lightsAllocationInfos[static_cast<size_t>(2) * m_CurrentFrame + 1].pMappedData, uniformPointLights.data(), sizeof(UniformPointLight) * m_PointLights.size());
 
-    if (*m_RayTracingAccelerationStructure->GetActiveRaytracingPtr())
-        m_RayTracingAccelerationStructure->UpdateUniform(glm::inverse(m_Camera->GetView()), glm::inverse(m_Camera->GetProjection()), m_CurrentFrame, m_Meshes);
+    //if (*m_RayTracingAccelerationStructure->GetActiveRaytracingPtr())
+    m_RayTracingAccelerationStructure->UpdateUniform(glm::inverse(m_Camera->GetView()), glm::inverse(m_Camera->GetProjection()), m_CurrentFrame, m_Meshes);
 
     if (!m_Meshes.empty())
     {
@@ -2101,7 +2142,11 @@ void Renderer::UpdateUniform()
         m_Meshes.back()->SetModel(glm::rotate(m_Meshes.back()->GetModel(), glm::radians<float>(static_cast<float>(m_DeltaTime) * 32.36f), glm::vec3(0., 1., 0.)));
 
         if (*m_RayTracingAccelerationStructure->GetActiveRaytracingPtr())
-            m_RayTracingAccelerationStructure->UpdateTransform(m_Device, m_Allocator, m_CurrentFrame, m_ComputeQueue, m_ComputePool, 0, m_Meshes[0]->GetModel());
+        {
+            std::vector<glm::mat4> transforms = { m_Meshes[0]->GetModel(), m_Meshes.back()->GetModel() };
+            std::vector<uint32_t> transformIndexs = { 0, static_cast<uint32_t>(m_Meshes.size() - 1) };
+            m_RayTracingAccelerationStructure->UpdateTransform(m_CurrentFrame, transformIndexs, transforms);
+        }
 
         for (size_t i = 0; i < m_Meshes.size(); i++)
         {

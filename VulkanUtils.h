@@ -17,7 +17,7 @@ public:
 
 	static VkCommandBuffer BeginSingleTimeCommands(VkDevice device, VkCommandPool transferPool);
 
-	static void EndSingleTimeCommands(VkDevice device, VkCommandPool transferPool, VkQueue transferQueue, VkCommandBuffer commandBuffer);
+	static void EndSingleTimeCommands(VkDevice device, VkCommandPool transferPool, VkQueue transferQueue, VkCommandBuffer commandBuffer, bool wait = true);
 
 	static void CopyBuffer(VkDevice device, VkCommandPool transferPool, VkQueue transferQueue, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
 

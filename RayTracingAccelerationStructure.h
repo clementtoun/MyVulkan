@@ -16,6 +16,7 @@ struct InstanceBuffer
 
 struct RayTracingScratchBuffer
 {
+    VmaAllocationInfo memoryInfo;
     uint64_t deviceAddress = 0;
     VkBuffer handle = VK_NULL_HANDLE;
     VmaAllocation memory = VK_NULL_HANDLE;
@@ -43,15 +44,21 @@ class RayTracingAccelerationStructure
 {
 public:
 
-    RayTracingAccelerationStructure(VkDevice device, VkPhysicalDevice physicalDevice, VmaAllocator vmaAllocator, VkQueue computeQueue, VkCommandPool computePool, const std::vector<Mesh*>& meshes, const std::vector<VkImageView>& imageViews);
+    RayTracingAccelerationStructure(VkDevice device, VkPhysicalDevice physicalDevice, VmaAllocator vmaAllocator, VkQueue computeQueue, VkCommandPool computePool, const std::vector<Mesh*>& meshes, const std::vector<VkImageView>& imageViews, const std::vector<VkDescriptorSetLayout>& layouts);
 
-    void RecordCommandBuffer(VkDevice device, VkCommandBuffer commandBuffer, uint32_t imageIndex, uint32_t width, uint32_t height);
+    void BindPipeline(VkCommandBuffer commandBuffer);
+
+    void BindTopLevelASDescriptorSet(VkCommandBuffer commandBuffer, uint32_t imageIndex);
+    
+    void RecordCmdTraceRay(VkDevice device, VmaAllocator vmaAllocator, VkCommandBuffer commandBuffer, uint32_t imageIndex, uint32_t width, uint32_t height);
 
     void UpdateUniform(const glm::mat4& viewInverse, const glm::mat4& projInverse, uint32_t imageIndex, const std::vector<Mesh*>& meshes);
 
-    void UpdateTransform(VkDevice device, VmaAllocator vmaAllocator, uint32_t imageIndex, VkQueue computeQueue, VkCommandPool computePool, uint32_t transformIndex, const glm::mat4& transform);
+    void UpdateTransform(uint32_t imageIndex, const std::vector<uint32_t>& transformIndexs, const std::vector<glm::mat4>& transforms);
 
     void UpdateImageDescriptor(VkDevice device, const std::vector<VkImageView>& imageViews);
+
+    VkPipelineLayout GetRayTracingPipelineLayout();
 
     bool* GetActiveRaytracingPtr();
     
@@ -73,7 +80,7 @@ private:
 
     void CreateDescriptorSets(VkDevice device, VmaAllocator allocator, const std::vector<VkImageView>& imageViews);
 
-    void CreateRayTracingPipeline(VkDevice device);
+    void CreateRayTracingPipeline(VkDevice device, const std::vector<VkDescriptorSetLayout>& layouts);
 
     void CreateShaderBindingTable(VkDevice device, VmaAllocator allocator);
 
@@ -84,6 +91,7 @@ private:
     std::vector<AccelerationStructure> m_BottomLevelASs{};
     std::vector<AccelerationStructure> m_TopLevelAS{};
     std::vector<InstanceBuffer> m_InstanceBuffer;
+    std::vector<RayTracingScratchBuffer> m_UpdateScratchBuffers;
     
     Descriptor m_TopLevelASDescriptor;
 

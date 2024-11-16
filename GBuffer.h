@@ -10,6 +10,7 @@ typedef struct s_GBUFFER
 	Image colorImageBuffer;
 	Image pbrImageBuffer; //R: roughness, G: metallic, B: AO, A: undefined
 	Image emissiveImageBuffer;
+	VkSampler sampler;
 } GBUFFER;
 
 class GBuffer

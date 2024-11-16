@@ -170,7 +170,7 @@ VkCommandBuffer VulkanUtils::BeginSingleTimeCommands(VkDevice device, VkCommandP
     return commandBuffer;
 }
 
-void VulkanUtils::EndSingleTimeCommands(VkDevice device, VkCommandPool transferPool, VkQueue transferQueue, VkCommandBuffer commandBuffer)
+void VulkanUtils::EndSingleTimeCommands(VkDevice device, VkCommandPool transferPool, VkQueue transferQueue, VkCommandBuffer commandBuffer, bool wait)
 {
     if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)
         std::cout << "Failed to end single time command buffer !" << "\n";
@@ -183,9 +183,12 @@ void VulkanUtils::EndSingleTimeCommands(VkDevice device, VkCommandPool transferP
     if (vkQueueSubmit(transferQueue, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS)
         std::cout << "Failed to submit single time command buffer !" << "\n";
 
-    VkResult result = vkQueueWaitIdle(transferQueue);
-    if (result != VK_SUCCESS)
-        std::cout << "Failed to queueWaitIdle single time command buffer ! " << result << "\n";
+    if (wait)
+    {
+        VkResult result = vkQueueWaitIdle(transferQueue);
+        if (result != VK_SUCCESS)
+            std::cout << "Failed to queueWaitIdle single time command buffer ! " << result << "\n";
+    }
 
     vkFreeCommandBuffers(device, transferPool, 1, &commandBuffer);
 }
