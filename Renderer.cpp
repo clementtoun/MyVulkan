@@ -129,9 +129,8 @@ Renderer::Renderer(const std::string& ApplicationName, uint32_t ApplicationVersi
     }
     meshes.clear();
 
-    
     auto ptColor = glm::vec3(1.f, 0.7f, 0.161f);
-    /*
+    
     meshes = MeshLoader::loadGltf("./Models/GLTF/Cube/glTF/Cube.gltf", m_Materials);
 
     for (auto mesh : meshes)
@@ -139,11 +138,10 @@ Renderer::Renderer(const std::string& ApplicationName, uint32_t ApplicationVersi
         mesh->CreateVertexBuffers(m_Allocator, m_Device, m_TransferPool, m_TranferQueue, m_QueueFamilyIndices.transferFamily.value(), m_QueueFamilyIndices.graphicsFamily.value());
         mesh->CreateIndexBuffers(m_Allocator, m_Device, m_TransferPool, m_TranferQueue, m_QueueFamilyIndices.transferFamily.value(), m_QueueFamilyIndices.graphicsFamily.value());
         mesh->SetModel(glm::scale(glm::translate(glm::mat4(1.f), glm::vec3(5., 5., 5.)), glm::vec3(0.2f)));
+        mesh->SetOccluder(false);
         m_Meshes.push_back(mesh);
     }
     meshes.clear();
-
-    auto ptColor = glm::vec3(1.f, 0.7f, 0.161f);
 
     auto& cubeMat = m_Materials.GetMaterials()[m_Materials.GetMaterials().size() - 1];
     cubeMat.emissiveTexturePath = "";
@@ -154,7 +152,6 @@ Renderer::Renderer(const std::string& ApplicationName, uint32_t ApplicationVersi
     cubeMat.materialUniformBuffer.metallic = 0.;
     cubeMat.materialUniformBuffer.roughness = 0.;
     cubeMat.materialUniformBuffer.emissiveColor = ptColor;
-    */
     m_PointLights.emplace_back(glm::vec3(5., 5., 5.), ptColor, 1.f);
 
     std::array<std::string, 6> cubemapFacePaths;
@@ -203,7 +200,7 @@ Renderer::Renderer(const std::string& ApplicationName, uint32_t ApplicationVersi
         m_Meshes.push_back(mesh);
     }
     meshes.clear();
-
+    
     meshes = MeshLoader::loadGltf("./Models/GLTF/Plane/TwoSidedPlane.gltf", m_Materials);
     for (auto mesh : meshes)
     {
@@ -2109,8 +2106,13 @@ void Renderer::UpdateUniform()
     m_SceneUniform.view = m_Camera->GetView();
     m_SceneUniform.projection = m_Camera->GetProjection();
     m_SceneUniform.position = m_Camera->GetPosition();
+    m_SceneUniform.time = (float) clock() / CLOCKS_PER_SEC;
     m_SceneUniform.numDirectionalLights = static_cast<int>(m_DirectionalLights.size());
     m_SceneUniform.numPointLights = static_cast<int>(m_PointLights.size());
+
+    glm::vec3 lPos = glm::vec3(cos(m_SceneUniform.time) * 7., 5., sin(m_SceneUniform.time) * 7.);
+    
+    m_PointLights[0].SetPosition(lPos);
 
     memcpy(m_PerPassDescriptor.GetUniformAllocationInfos()[m_CurrentFrame].pMappedData, &m_SceneUniform, sizeof(SceneUniform));
 
@@ -2143,6 +2145,8 @@ void Renderer::UpdateUniform()
         char* modelsData = static_cast<char*>(malloc(m_Meshes.size() * paddedSize));
 
         m_Meshes[0]->SetModel(glm::rotate(m_Meshes[0]->GetModel(), glm::radians<float>(static_cast<float>(m_DeltaTime) * 32.36f), glm::vec3(0., 1., 0.)));
+
+        m_Meshes[1]->SetModel(glm::scale(glm::translate(glm::mat4(1.f), lPos), glm::vec3(0.2f)));
 
         m_Meshes.back()->SetModel(glm::rotate(m_Meshes.back()->GetModel(), glm::radians<float>(static_cast<float>(m_DeltaTime) * 32.36f), glm::vec3(0., 1., 0.)));
         

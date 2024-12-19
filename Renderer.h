@@ -60,6 +60,7 @@ typedef struct alignas(16) s_SceneUniform
 	alignas(16) glm::mat4 view;          
 	alignas(16) glm::mat4 projection;
 	alignas(16) glm::vec3 position;
+	alignas(4) float time;
 	alignas(4) int numDirectionalLights;
 	alignas(4) int numPointLights;
 } SceneUniform;

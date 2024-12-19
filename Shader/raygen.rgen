@@ -30,7 +30,8 @@ layout (set=2, binding=0) uniform Scene
 	mat4 view;
 	mat4 projection;
 	vec3 camPosition;
-	int padding;
+	int padding1;
+	float time;
 	int numDirectionalLights;
 	int numPointLights;
 };
@@ -131,7 +132,7 @@ void main()
 				
 				hitValue = false;
 
-				traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT, 0xff, 0, 0, 0, FragPos, tmin, L, tmax, 0);
+				traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT | gl_RayFlagsCullBackFacingTrianglesEXT, 0xff, 0, 0, 0, FragPos, tmin, L, tmax, 0);
 
 				if (!hitValue)
 				{
@@ -164,7 +165,7 @@ void main()
 
 				hitValue = false;
 
-				traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT, 0xff, 0, 0, 0, FragPos, tmin, L, tmax, 0);
+				traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT | gl_RayFlagsCullBackFacingTrianglesEXT, 0xff, 0, 0, 0, FragPos, tmin, L, tmax, 0);
 
 				if (!hitValue)
 				{

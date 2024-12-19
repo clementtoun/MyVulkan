@@ -5,6 +5,7 @@
 layout(location = 0) rayPayloadInEXT bool hitValue;
 hitAttributeEXT vec2 attribs;
 
+
 void main()
 {
   //const vec3 barycentricCoords = vec3(1.0f - attribs.x - attribs.y, attribs.x, attribs.y);

@@ -16,7 +16,8 @@ layout (set=0, binding=0) uniform Scene
     mat4 view;
     mat4 projection;
     vec3 camPosition;
-    int padding;
+    int padding1;
+    float time;
     int numDirectionalLights;
     int numPointLights;
 };

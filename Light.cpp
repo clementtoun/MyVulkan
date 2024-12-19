@@ -59,6 +59,11 @@ PointLight::PointLight(glm::vec3 position, glm::vec3 color, float intensity)
     m_Intensity = intensity;
 }
 
+void PointLight::SetPosition(glm::vec3 position)
+{
+    m_Position = position;
+}
+
 UniformPointLight PointLight::GetUniformPointLight()
 {
     return {m_Color * m_Intensity, m_Position};

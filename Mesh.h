@@ -108,6 +108,10 @@ public:
 
 	void SetModel(const glm::mat4& model);
 
+	void SetOccluder(bool occluder);
+
+	bool IsOccluder();
+
 	void AutoComputeNormalsPrimitive(size_t primitiveIndex);
 
 	void AutoComputeTangentsBiTangentsPrimitive(size_t primitiveIndex);
@@ -130,6 +134,8 @@ private:
 	std::vector<Primitive> m_Primitves;
 
 	glm::mat4 m_Model;
+
+	bool m_Occluder = true;
 
 	VkBuffer m_VertexBuffer = VK_NULL_HANDLE;
 	VmaAllocation m_VertexBufferAlloc = nullptr;

@@ -173,7 +173,12 @@ void RayTracingAccelerationStructure::CreateTopLevelAS(VkDevice device, VmaAlloc
             model[0][2], model[1][2], model[2][2], model[3][2]
         };
 
-        instances.emplace_back(transformMatrix, 0, 0xFF, 0, VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR, m_BottomLevelASs[i].deviceAddress);
+        VkGeometryInstanceFlagsKHR flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
+
+        if (!meshes[i]->IsOccluder())
+            flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FLIP_FACING_BIT_KHR;
+
+        instances.emplace_back(transformMatrix, 0, 0xFF, 0, flags, m_BottomLevelASs[i].deviceAddress);
     }
 
     m_InstanceBuffer.reserve(count);

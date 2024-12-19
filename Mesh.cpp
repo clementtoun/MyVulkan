@@ -258,6 +258,16 @@ void Mesh::SetModel(const glm::mat4& model)
 	m_Model = model;
 }
 
+void Mesh::SetOccluder(bool occluder)
+{
+	m_Occluder = occluder;
+}
+
+bool Mesh::IsOccluder()
+{
+	return m_Occluder;
+}
+
 void Mesh::AutoComputeNormalsPrimitive(size_t primitiveIndex)
 {
 	Primitive& p = m_Primitves[primitiveIndex];
