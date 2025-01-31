@@ -1,7 +1,7 @@
 #include "Image.h"
 #include "VulkanUtils.h"
 
-void Image::CreateImage(VmaAllocator allocator, uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, const std::vector<uint32_t> families, uint32_t mipLevels, uint32_t layer_count)
+void Image::CreateImage(VmaAllocator allocator, uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, const std::vector<uint32_t> families, uint32_t mipLevels, uint32_t layer_count, VkImageLayout initial_layout)
 {
     m_MipLevels = mipLevels;
     m_layer_count = layer_count;
@@ -16,7 +16,7 @@ void Image::CreateImage(VmaAllocator allocator, uint32_t width, uint32_t height,
     imageCreateInfo.arrayLayers = layer_count;
     imageCreateInfo.format = format;
     imageCreateInfo.tiling = tiling;
-    imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    imageCreateInfo.initialLayout = initial_layout;
     imageCreateInfo.usage = usage;
     imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
     imageCreateInfo.flags = m_layer_count == 6 ? VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT : 0;
@@ -58,7 +58,7 @@ void Image::CreateImageView(VkDevice device, VkFormat format, VkImageAspectFlags
     viewInfo.subresourceRange.layerCount = m_layer_count;
 
     if (vkCreateImageView(device, &viewInfo, nullptr, &m_ImageView) != VK_SUCCESS) {
-        throw std::runtime_error("échec de la creation de la vue sur une image!");
+        throw std::runtime_error("ï¿½chec de la creation de la vue sur une image!");
     }
 }
 

@@ -729,7 +729,7 @@ void RayTracingAccelerationStructure::UpdateUniform(const glm::mat4& viewInverse
     memcpy(uniformAllocInfo.pMappedData, &uniformData, sizeof(UniformData));
 }
 
-void RayTracingAccelerationStructure::UpdateTransform(uint32_t imageIndex, const std::vector<uint32_t>& transformIndexs, const std::vector<glm::mat4>& transforms)
+void RayTracingAccelerationStructure::UpdateTransform(uint32_t imageIndex, const std::vector<uint32_t>& transformIndexs, const std::vector<glm::mat4>& transforms, const std::vector<bool>& nonOccluderIndexs)
 {
     for (int i = 0; i < transformIndexs.size(); i++)
     {
@@ -748,7 +748,21 @@ void RayTracingAccelerationStructure::UpdateTransform(uint32_t imageIndex, const
         instance.mask = 0xFF;
         instance.instanceShaderBindingTableRecordOffset = 0;
         instance.accelerationStructureReference = m_BottomLevelASs[transformIndex].deviceAddress;
-        instance.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
+
+        bool nonOccluder = false;
+        
+        for (auto nonOccluderIndex : nonOccluderIndexs)
+        {
+            nonOccluder = nonOccluder || (i == nonOccluderIndex);
+            break;
+        }
+
+        VkGeometryInstanceFlagsKHR flags = VK_GEOMETRY_INSTANCE_TRIANGLE_CULL_DISABLE_BIT_NV;
+
+        if (nonOccluder)
+            flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FLIP_FACING_BIT_KHR;
+
+        instance.flags = flags;
         
         memcpy(reinterpret_cast<uint8_t*>(m_InstanceBuffer[imageIndex].memoryInfo.pMappedData) + transformIndex * sizeof(VkAccelerationStructureInstanceKHR), &instance, sizeof(VkAccelerationStructureInstanceKHR));
     }

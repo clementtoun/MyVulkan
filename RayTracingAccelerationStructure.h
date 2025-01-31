@@ -54,7 +54,7 @@ public:
 
     void UpdateUniform(const glm::mat4& viewInverse, const glm::mat4& projInverse, uint32_t imageIndex, const std::vector<Mesh*>& meshes);
 
-    void UpdateTransform(uint32_t imageIndex, const std::vector<uint32_t>& transformIndexs, const std::vector<glm::mat4>& transforms);
+    void UpdateTransform(uint32_t imageIndex, const std::vector<uint32_t>& transformIndexs, const std::vector<glm::mat4>& transforms, const std::vector<bool>& nonOccluderIndex);
 
     void UpdateImageDescriptor(VkDevice device, const std::vector<VkImageView>& imageViews);
 

@@ -99,6 +99,8 @@ void main()
 
 		vec3 N = normalize(Nw.xyz);
 		vec3 V = normalize(camPosition - FragPos);
+		
+		vec3 biased_rayOrig = FragPos + N * 0.01;
 
 		float opacity = BaseColor.a;
 		vec3 albedo = BaseColor.rgb;
@@ -132,7 +134,7 @@ void main()
 				
 				hitValue = false;
 
-				traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT | gl_RayFlagsCullBackFacingTrianglesEXT, 0xff, 0, 0, 0, FragPos, tmin, L, tmax, 0);
+				traceRayEXT(topLevelAS, gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsOpaqueEXT | gl_RayFlagsCullBackFacingTrianglesEXT, 0xff, 0, 0, 0, biased_rayOrig, tmin, L, tmax, 0);
 
 				if (!hitValue)
 				{
@@ -165,7 +167,7 @@ void main()
 
 				hitValue = false;
 
-				traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT | gl_RayFlagsCullBackFacingTrianglesEXT, 0xff, 0, 0, 0, FragPos, tmin, L, tmax, 0);
+				traceRayEXT(topLevelAS, gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsOpaqueEXT | gl_RayFlagsCullBackFacingTrianglesEXT, 0xff, 0, 0, 0, biased_rayOrig, tmin, L, tmax, 0);
 
 				if (!hitValue)
 				{

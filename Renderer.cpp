@@ -249,7 +249,10 @@ Renderer::Renderer(const std::string& ApplicationName, uint32_t ApplicationVersi
 
     std::cout << "Graphic index: " << m_QueueFamilyIndices.graphicsFamily.value() << " Compute index: " << m_QueueFamilyIndices.computeFamily.value() << " Transfert index: " << m_QueueFamilyIndices.transferFamily.value() << "\n";
 
-    m_RayTracingAccelerationStructure = new RayTracingAccelerationStructure(m_Device, m_PhysicalDevice, m_Allocator, m_ComputeQueue, m_ComputePool, m_Meshes, m_SwapChain.GetImageViews(), {m_GBufferDescriptor.GetDescriptorSetLayout(), m_PerPassDescriptor.GetDescriptorSetLayout()}); 
+    std::vector<VkImageView> ImageViews;
+    m_SwapChain.GetImageViews(ImageViews);
+    
+    m_RayTracingAccelerationStructure = new RayTracingAccelerationStructure(m_Device, m_PhysicalDevice, m_Allocator, m_ComputeQueue, m_ComputePool, m_Meshes, ImageViews, {m_GBufferDescriptor.GetDescriptorSetLayout(), m_PerPassDescriptor.GetDescriptorSetLayout()}); 
 
     m_Camera = new QuaternionCamera(glm::vec3(0., 1., 5.), glm::vec3(0., 0., 0.), glm::vec3(0., 1., 0.), 77., extent.width / static_cast<double>(extent.height),  1e-3, 100000.0);
     m_Camera->SetSpeed(15.);
@@ -1729,6 +1732,9 @@ void Renderer::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t curre
         perMeshDescriptorSet = m_PerMeshDescriptor.GetDescriptorSets()[currentFrame];
     auto perPassDescriptorSet = m_PerPassDescriptor.GetDescriptorSets()[currentFrame];
 
+    std::vector<VkImage> Images;
+    m_SwapChain.GetImages(Images);
+
     VkCommandBufferBeginInfo beginInfo;
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     beginInfo.pNext = NULL;
@@ -1840,12 +1846,14 @@ void Renderer::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t curre
 
     VkImageMemoryBarrier imageBarrier = {};
     imageBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    imageBarrier.oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    imageBarrier.oldLayout = m_freshRT[currentFrame] ? VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     imageBarrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;   
     imageBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT; 
     imageBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT; 
-    imageBarrier.image = m_SwapChain.GetImages()[currentFrame];
+    imageBarrier.image = Images[currentFrame];
     imageBarrier.subresourceRange = imageSubresourceRange;
+
+    m_freshRT[currentFrame] = false;
     
     vkCmdPipelineBarrier(
         commandBuffer,
@@ -1870,7 +1878,7 @@ void Renderer::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t curre
     imageBarrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;  // Layout souhaité pour la render pass
     imageBarrier.srcQueueFamilyIndex = m_QueueFamilyIndices.graphicsFamily.value();
     imageBarrier.dstQueueFamilyIndex = m_QueueFamilyIndices.graphicsFamily.value();
-    imageBarrier.image = m_SwapChain.GetImages()[currentFrame];  // L'image générée par le ray tracing
+    imageBarrier.image = Images[currentFrame];  // L'image générée par le ray tracing
     imageBarrier.subresourceRange = imageSubresourceRange;
     imageBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;  // Accès en écriture par le ray tracing
     imageBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;   // Accès en lecture pour la subpass
@@ -1957,10 +1965,14 @@ void Renderer::Draw()
     VkResult result = vkAcquireNextImageKHR(m_Device, m_SwapChain.GetSwapChain(), UINT64_MAX,
         m_ImageAvailableSemaphores[m_CurrentFrame], VK_NULL_HANDLE, &imageIndex);
 
+    std::vector<VkImageView> ImageViews;
+
     if (result == VK_ERROR_OUT_OF_DATE_KHR)
     {
         m_SwapChain.RebuildSwapChain(m_PhysicalDevice, m_Allocator, m_Device, m_Surface, m_Window.getWindow(), m_QueueFamilyIndices);
-        m_RayTracingAccelerationStructure->UpdateImageDescriptor(m_Device, m_SwapChain.GetImageViews());
+        m_freshRT.fill(true);
+        m_SwapChain.GetImageViews(ImageViews);
+        m_RayTracingAccelerationStructure->UpdateImageDescriptor(m_Device, ImageViews);
         CleanupCommandBuffers();
         m_DepthImage.Cleanup(m_Allocator, m_Device);
         CreateDepthRessources();
@@ -2081,7 +2093,9 @@ void Renderer::Draw()
     if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || m_FramebufferResized)
     {
         m_SwapChain.RebuildSwapChain(m_PhysicalDevice, m_Allocator, m_Device, m_Surface, m_Window.getWindow(), m_QueueFamilyIndices);
-        m_RayTracingAccelerationStructure->UpdateImageDescriptor(m_Device, m_SwapChain.GetImageViews());
+        m_freshRT.fill(true);
+        m_SwapChain.GetImageViews(ImageViews);
+        m_RayTracingAccelerationStructure->UpdateImageDescriptor(m_Device, ImageViews);
         CleanupCommandBuffers();
         m_DepthImage.Cleanup(m_Allocator, m_Device);
         CreateDepthRessources();
@@ -2150,9 +2164,9 @@ void Renderer::UpdateUniform()
 
         m_Meshes.back()->SetModel(glm::rotate(m_Meshes.back()->GetModel(), glm::radians<float>(static_cast<float>(m_DeltaTime) * 32.36f), glm::vec3(0., 1., 0.)));
         
-        std::vector<glm::mat4> transforms = { m_Meshes[0]->GetModel(), m_Meshes.back()->GetModel() };
-        std::vector<uint32_t> transformIndexs = { 0, static_cast<uint32_t>(m_Meshes.size() - 1) };
-        m_RayTracingAccelerationStructure->UpdateTransform(m_CurrentFrame, transformIndexs, transforms);
+        std::vector transforms = { m_Meshes[0]->GetModel(), m_Meshes[1]->GetModel(), m_Meshes.back()->GetModel() };
+        std::vector<uint32_t> transformIndexs = { 0, 1, static_cast<uint32_t>(m_Meshes.size() - 1) };
+        m_RayTracingAccelerationStructure->UpdateTransform(m_CurrentFrame, transformIndexs, transforms, {true});
 
         for (size_t i = 0; i < m_Meshes.size(); i++)
         {

@@ -37,9 +37,9 @@ public:
 
 	const VkExtent2D& GetExtent();
 
-	const std::vector<VkImage> GetImages();
+	const void GetImages(std::vector<VkImage>& outImages);
 
-	const std::vector<VkImageView> GetImageViews();
+	const void GetImageViews(std::vector<VkImageView>& outImageViews);
 
 	const std::vector<VkFramebuffer>& GetFramebuffers();
 

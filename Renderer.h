@@ -187,6 +187,8 @@ private:
 	GBuffer m_GBuffer;
 	Mesh m_simpleQuadMesh;
 
+	std::array<bool, MAX_FRAMES_IN_FLIGHT> m_freshRT = {true, true, true};
+
 	//RAY TRACING
 	RayTracingAccelerationStructure* m_RayTracingAccelerationStructure;
 

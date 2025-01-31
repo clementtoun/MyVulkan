@@ -7,7 +7,7 @@
 class Image
 {
 public:
-	void CreateImage(VmaAllocator allocator, uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, const std::vector<uint32_t> families, uint32_t mipLevels = 1, uint32_t layer_count = 1);
+	void CreateImage(VmaAllocator allocator, uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, const std::vector<uint32_t> families, uint32_t mipLevels = 1, uint32_t layer_count = 1, VkImageLayout initial_layout = VK_IMAGE_LAYOUT_UNDEFINED);
 
 	void CreateImageView(VkDevice device, VkFormat format, VkImageAspectFlags aspectFlags, VkImageViewType viewType = VK_IMAGE_VIEW_TYPE_2D);
 

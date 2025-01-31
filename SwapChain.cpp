@@ -225,30 +225,26 @@ const VkExtent2D& SwapChain::GetExtent()
     return m_Extent;
 }
 
-const std::vector<VkImage> SwapChain::GetImages()
+const void SwapChain::GetImages(std::vector<VkImage>& outImages)
 {
-    std::vector<VkImage> images;
-    images.resize(m_RTImages.size());
+    outImages.clear();
+    outImages.resize(m_RTImages.size());
 
     for (int i = 0; i < m_RTImages.size(); i++)
     {
-        images[i] = m_RTImages[i].GetImage();
+        outImages[i] = m_RTImages[i].GetImage();
     }
-
-    return images;
 }
 
-const std::vector<VkImageView> SwapChain::GetImageViews()
+const void SwapChain::GetImageViews(std::vector<VkImageView>& outImageViews)
 {
-    std::vector<VkImageView> imageViews;
-    imageViews.resize(m_RTImages.size());
+    outImageViews.clear();
+    outImageViews.resize(m_RTImages.size());
 
     for (int i = 0; i < m_RTImages.size(); i++)
     {
-        imageViews[i] = m_RTImages[i].GetImageView();
+        outImageViews[i] = m_RTImages[i].GetImageView();
     }
-
-    return imageViews;
 }
 
 const std::vector<VkFramebuffer>& SwapChain::GetFramebuffers()
